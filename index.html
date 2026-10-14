@@ -1,0 +1,2883 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Seguimiento de Grupo de Oración</title>
+./manifest.json
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/docx@8.2.3/build/index.umd.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.1/firebase-firestore-compat.js"></script>
+<style>
+  :root {
+    --bg: #f4f7f6;
+    --surface: #ffffff;
+    --surface-2: #eef3f1;
+    --surface-3: #e5eeeb;
+    --text: #18312b;
+    --text-dim: #6d7c77;
+    --border: #dce7e3;
+    --accent: #2f6f62;
+    --accent-2: #4e9181;
+    --accent-soft: #e3f1ed;
+    --ok: #2f7a55;
+    --ok-bg: #e6f4eb;
+    --warn: #a96a2b;
+    --warn-bg: #fff0df;
+    --danger: #b94b45;
+    box-sizing: border-box;
+  }
+  *, *::before, *::after { box-sizing: border-box; }
+  html { scroll-padding-top: env(safe-area-inset-top, 0px); }
+  html, body { height: 100%; }
+  body {
+    background: linear-gradient(180deg, #f8fbfa 0%, var(--bg) 48%, #f1f5f3 100%);
+    color: var(--text);
+    font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    margin: 0;
+    -webkit-font-smoothing: antialiased;
+  }
+  button, input, select, textarea { font-family: inherit; }
+  button { -webkit-tap-highlight-color: transparent; }
+  .card {
+    background: rgba(255,255,255,.96);
+    border: 1px solid var(--border);
+    border-radius: 18px;
+    box-shadow: 0 8px 24px rgba(29, 64, 55, .06);
+  }
+  .pill { border-radius: 999px; padding: 4px 10px; font-size: 12px; font-weight: 700; }
+  .pill-proceso { background: var(--warn-bg); color: var(--warn); }
+  .pill-superada { background: var(--ok-bg); color: var(--ok); }
+  .btn {
+    background: linear-gradient(135deg, var(--accent), var(--accent-2));
+    color: #fff; border-radius: 12px; padding: 10px 15px; font-weight: 700; font-size: 14px;
+    border: none; cursor: pointer; box-shadow: 0 5px 14px rgba(47,111,98,.18); transition: transform .15s, box-shadow .15s, opacity .15s;
+  }
+  .btn:hover { box-shadow: 0 7px 18px rgba(47,111,98,.24); }
+  .btn:active { transform: translateY(1px) scale(.99); opacity: .9; }
+  .btn-ghost {
+    background: var(--surface); color: var(--accent); border: 1px solid var(--border); border-radius: 11px;
+    padding: 9px 13px; font-weight: 700; font-size: 13px; cursor: pointer; transition: background .15s, transform .15s;
+  }
+  .btn-ghost:hover { background: var(--accent-soft); }
+  .btn-danger { background: #fff7f6; color: var(--danger); border: 1px solid #e8c4c1; border-radius: 10px; padding: 6px 10px; font-size: 12px; font-weight: 700; cursor: pointer; }
+  input, select, textarea {
+    background: var(--surface); color: var(--text); border: 1px solid var(--border);
+    border-radius: 12px; padding: 10px 11px; font-size: 14px; width: 100%; outline: none; transition: border .15s, box-shadow .15s, background .15s;
+  }
+  input:focus, select:focus, textarea:focus { border-color: var(--accent-2); box-shadow: 0 0 0 3px rgba(78,145,129,.13); }
+  textarea { resize: vertical; }
+  label { color: var(--text); }
+  .tab-btn { padding: 10px 6px; font-weight: 700; font-size: 14px; color: var(--text-dim); border-bottom: 2px solid transparent; cursor: pointer; }
+  .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+  .app-header { position: sticky; top: 0; z-index: 40; background: rgba(248,251,250,.94); backdrop-filter: blur(14px); border-bottom: 1px solid rgba(220,231,227,.9); }
+  .brand-row { display:flex; align-items:center; justify-content:space-between; gap:12px; }
+  .brand-mark { width:42px; height:42px; border-radius:14px; display:grid; place-items:center; background:linear-gradient(135deg,var(--accent),var(--accent-2)); color:#fff; font-size:21px; box-shadow:0 7px 18px rgba(47,111,98,.2); flex:0 0 auto; }
+  .brand-title { font-size:17px; font-weight:800; letter-spacing:-.2px; }
+  .brand-subtitle { margin-top:2px; font-size:12px; color:var(--text-dim); }
+  .group-select-wrap { margin-top:12px; display:flex; align-items:center; gap:8px; }
+  .group-select-wrap select { flex:1; min-width:0; font-weight:700; background:var(--surface); }
+  .group-actions { display:flex; gap:6px; flex-wrap:wrap; }
+  .bottom-nav { position:fixed; left:50%; bottom:0; transform:translateX(-50%); width:min(720px,100%); z-index:50; padding:8px 8px calc(8px + env(safe-area-inset-bottom, 0px)); background:rgba(255,255,255,.97); border-top:1px solid var(--border); box-shadow:0 -8px 28px rgba(29,64,55,.08); display:grid; grid-template-columns:repeat(5,1fr); gap:4px; }
+  .nav-item { border:0; background:transparent; color:var(--text-dim); border-radius:13px; padding:7px 3px; font-size:10px; font-weight:700; cursor:pointer; display:flex; flex-direction:column; align-items:center; gap:3px; }
+  .nav-item .nav-icon { font-size:19px; line-height:1; }
+  .nav-item.active { color:var(--accent); background:var(--accent-soft); }
+  .nav-item:active { transform:scale(.97); }
+  .more-sheet { position:fixed; inset:0; z-index:70; background:rgba(18,39,34,.28); backdrop-filter:blur(3px); display:flex; align-items:flex-end; }
+  .more-panel { width:min(720px,100%); margin:0 auto; background:var(--surface); border-radius:24px 24px 0 0; padding:18px 16px calc(18px + env(safe-area-inset-bottom,0px)); box-shadow:0 -14px 40px rgba(20,45,39,.18); animation:sheetIn .2s ease-out; }
+  .more-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:10px; margin-top:12px; }
+  .more-item { background:var(--surface-2); border:1px solid var(--border); border-radius:15px; padding:14px; text-align:left; font-weight:700; color:var(--text); cursor:pointer; }
+  .more-item span { display:block; font-size:22px; margin-bottom:7px; }
+  .hero { border-radius:22px; padding:20px; background:linear-gradient(135deg,#245f54,#4e9181); color:#fff; box-shadow:0 12px 28px rgba(47,111,98,.2); }
+  .hero .muted { color:rgba(255,255,255,.78); }
+  .section-title { font-size:15px; font-weight:800; margin:20px 2px 10px; }
+  .stat-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:10px; }
+  .stat-card { padding:14px; min-height:100px; }
+  .stat-icon { width:36px; height:36px; border-radius:12px; display:grid; place-items:center; background:var(--accent-soft); font-size:18px; margin-bottom:9px; }
+  .stat-value { font-size:24px; font-weight:850; letter-spacing:-.5px; }
+  .stat-label { font-size:12px; color:var(--text-dim); margin-top:2px; }
+  .quick-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:10px; }
+  .quick-card { padding:14px; cursor:pointer; transition:transform .15s, box-shadow .15s; }
+  .quick-card:active { transform:scale(.985); }
+  .quick-card .qicon { font-size:24px; }
+  .quick-card strong { display:block; margin-top:7px; }
+  .quick-card small { color:var(--text-dim); display:block; margin-top:3px; }
+  .empty-state { text-align:center; padding:28px 16px; color:var(--text-dim); }
+  .status-bar { position:fixed; left:50%; bottom:66px; transform:translateX(-50%); z-index:45; width:min(680px,calc(100% - 24px)); padding:0; pointer-events:none; }
+  .status-bar:not(:empty) { padding:9px 13px; background:#18312b; color:#fff; border-radius:12px; text-align:center; box-shadow:0 8px 22px rgba(24,49,43,.18); font-size:12px; }
+  .animate-in { animation:fadeUp .25s ease-out both; }
+  .card, .hero, .quick-card, .stat-card { animation:fadeUp .22s ease-out both; }
+  ::-webkit-scrollbar { height:6px; width:6px; }
+  .wrap-x { overflow-x:auto; }
+  @keyframes fadeUp { from { opacity:0; transform:translateY(5px); } to { opacity:1; transform:none; } }
+  @keyframes sheetIn { from { opacity:0; transform:translateY(24px); } to { opacity:1; transform:none; } }
+  @media (max-width:520px){
+    #content { padding:14px 12px 105px !important; }
+    .brand-title { font-size:16px; }
+    .hero { padding:17px; }
+    .more-grid { grid-template-columns:1fr 1fr; }
+  }
+</style>
+<style id="ministerio-theme">
+  /* Identidad visual inspirada en el logo: azul marino, rojo, amarillo y blanco */
+  :root {
+    --bg: #f4f6fa;
+    --surface: #ffffff;
+    --surface-2: #eef2f8;
+    --surface-3: #e5eaf3;
+    --text: #17233d;
+    --text-dim: #657086;
+    --border: #d9e0eb;
+    --accent: #0a2a63;
+    --accent-2: #174b9b;
+    --accent-soft: #eaf0fb;
+    --ok: #23784c;
+    --ok-bg: #e7f5ed;
+    --warn: #a86d00;
+    --warn-bg: #fff5d6;
+    --danger: #d2262e;
+  }
+  body { background: linear-gradient(180deg, #f8faff 0%, var(--bg) 48%, #eef2f8 100%); }
+  .card { box-shadow: 0 8px 24px rgba(10,42,99,.07); }
+  .btn { background: linear-gradient(135deg, var(--accent), var(--accent-2)); box-shadow: 0 5px 14px rgba(10,42,99,.20); }
+  .btn:hover { box-shadow: 0 7px 18px rgba(10,42,99,.27); }
+  .btn-ghost { color: var(--accent); }
+  .btn-danger { background: #fff5f5; color: var(--danger); border-color: #efc7ca; }
+  input:focus, select:focus, textarea:focus { border-color: var(--accent-2); box-shadow: 0 0 0 3px rgba(23,75,155,.13); }
+  .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+  .app-header { background: rgba(248,250,255,.95); border-bottom: 3px solid var(--danger); box-shadow: 0 3px 12px rgba(210,38,46,.08); }
+  .brand-mark { background: linear-gradient(145deg, #d2262e 0%, #ef3038 48%, #0a2a63 49%, #174b9b 100%); box-shadow: 0 7px 18px rgba(210,38,46,.28); }
+  .bottom-nav { box-shadow: 0 -8px 28px rgba(10,42,99,.10); border-top: 2px solid rgba(210,38,46,.24); }
+  .nav-item.active { color: var(--danger); background: #fff0f1; }
+  .nav-item.active .nav-icon { filter: drop-shadow(0 2px 3px rgba(210,38,46,.18)); }
+  .group-select-wrap { border-left: 4px solid var(--danger); padding-left: 8px; }
+  .hero { border-bottom: 5px solid var(--danger); }
+  .quick-card[data-quick="reuniones"] { border-top: 4px solid var(--danger); }
+  .quick-card[data-quick="reuniones"] .qicon { color: var(--danger); }
+  .quick-card[data-quick="asistencia"] { border-top: 4px solid #ffd21a; }
+  .more-sheet { background: rgba(7,25,55,.30); }
+  .more-panel { box-shadow: 0 -14px 40px rgba(7,25,55,.22); }
+  .hero { position: relative; overflow: hidden; background: linear-gradient(135deg, #061d4a 0%, #0a2a63 58%, #174b9b 100%); box-shadow: 0 12px 28px rgba(10,42,99,.22); }
+  .hero::after { content:""; position:absolute; width:110px; height:110px; right:-32px; top:-38px; border-radius:50%; background:rgba(255,210,26,.16); box-shadow:-52px 72px 0 -20px rgba(210,38,46,.18); pointer-events:none; }
+  .hero > * { position:relative; z-index:1; }
+  .stat-card:nth-child(2) .stat-icon { background:#fff3f3; }
+  .stat-card:nth-child(3) .stat-icon { background:#fff8df; }
+  .stat-card:nth-child(4) .stat-icon { background:#eaf0fb; }
+  .status-bar:not(:empty) { background:#0a2a63; box-shadow:0 8px 22px rgba(10,42,99,.22); }
+  .quick-card:active, .nav-item:active, .btn:active { transform:scale(.985); }
+</style>
+</head>
+<body>
+<div id="app" style="max-width: 720px; margin: 0 auto; min-height: 100%; display:flex; flex-direction:column;">
+  <header class="app-header">
+    <div style="padding:12px 14px 11px;">
+      <div class="brand-row">
+        <div style="display:flex;align-items:center;gap:10px;min-width:0;">
+          <div class="brand-mark">🙏</div>
+          <div style="min-width:0;">
+            <div class="brand-title">Seguimiento de Grupos</div>
+            <div class="brand-subtitle">Organización · Comunidad · Seguimiento</div>
+          </div>
+        </div>
+      </div>
+      <div id="groupBar"></div>
+    </div>
+  </header>
+  <div id="content" style="padding:16px 14px 105px; flex:1;"></div>
+  <div id="statusBar" class="status-bar"></div>
+  <nav id="bottomNav" class="bottom-nav" aria-label="Navegación principal"></nav>
+  <div id="moreSheet" style="display:none;"></div>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  // ---------- state ----------
+  let db = null, downloadsCap = null, canUse = false;
+  let authUser = null;
+  let appRole = "coordinator";
+  let appProfile = null;
+  let institutionalSession = false;
+  let secondaryAuth = null;
+  let groups = [];
+  let currentGroupId = null;
+  let people = []; // [{id, name, active}]
+  let situationsCache = {}; // personId -> [situations]
+  let attendanceHistory = []; // recent attendance docs
+  let guestList = []; // invitados del grupo, separados de los miembros oficiales
+  let meetingGuestRows = []; // invitados editados en el formulario de reunión
+  let activeTab = "inicio";
+  let unsubGroups = null, unsubPeople = null;
+
+  function safeLocalGet(k){ try { return localStorage.getItem(k); } catch(e){ return null; } }
+  function safeLocalSet(k,v){ try { localStorage.setItem(k,v); } catch(e){} }
+
+  function setStatus(msg){
+    document.getElementById("statusBar").textContent = msg || "";
+  }
+
+  function todayISO(){
+    const d = new Date();
+    return d.toISOString().slice(0,10);
+  }
+
+  function esc(s){
+    return String(s == null ? "" : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
+
+  async function sha256Hex(text){
+    const enc = new TextEncoder().encode(text);
+    const buf = await crypto.subtle.digest("SHA-256", enc);
+    return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,"0")).join("");
+  }
+
+  let unlockedGroups = new Set();
+  try { unlockedGroups = new Set(JSON.parse(safeLocalGet("unlockedGroups") || "[]")); } catch(e){ unlockedGroups = new Set(); }
+  function markUnlocked(gid){
+    unlockedGroups.add(gid);
+    safeLocalSet("unlockedGroups", JSON.stringify(Array.from(unlockedGroups)));
+  }
+  function isCurrentGroupLocked(){
+    const group = groups.find(g => g.id === currentGroupId);
+    return !!(group && group.passwordHash && !unlockedGroups.has(currentGroupId) && !canBypassGroupPassword());
+  }
+
+  function isLeader(){ return appRole === "leader_male" || appRole === "leader_female"; }
+  function isSupervisor(){ return appRole === "supervisor"; }
+  function canBypassGroupPassword(){ return isLeader() || isSupervisor(); }
+  function visibleGroups(){
+    if (isLeader()) return groups.slice();
+    if (isSupervisor()) {
+      const allowed = new Set(Array.isArray(appProfile?.groupIds) ? appProfile.groupIds : []);
+      return groups.filter(g => allowed.has(g.id));
+    }
+    return groups.slice();
+  }
+  function roleLabel(){
+    if (appRole === "leader_male") return "Líder de Varones";
+    if (appRole === "leader_female") return "Líder de Mujeres";
+    if (appRole === "supervisor") return "Supervisor";
+    return "Coordinador de grupo";
+  }
+  function shareDisplayName(id){ return id === "__DE_TRAJE__" ? "De traje" : ((people.find(p => p.id === id) || {}).name || "Sin compartir"); }
+  function shareDisplayIcon(id){ return id === "__DE_TRAJE__" ? "🍽️" : "🍽️"; }
+  function guestStatusLabel(status){ return status === "continues" ? "Continúa" : status === "not_continues" ? "No continuó" : "Seleccionar"; }
+  function guestStatusClass(status){ return status === "continues" ? "pill-superada" : status === "not_continues" ? "pill-proceso" : ""; }
+  function normalizeGuestName(name){ return String(name || "").trim().toLowerCase().replace(/\s+/g, " "); }
+  function legacyGuestsFromMeeting(m){
+    if (Array.isArray(m.guests)) return m.guests.map((g,i) => ({ id:g.id || ("legacy-" + i), name:g.name || "", status:g.status || "" })).filter(g => g.name);
+    if (Array.isArray(m.guestNames)) return m.guestNames.map((name,i) => ({ id:"legacy-" + i, name:String(name || "").trim(), status:"" })).filter(g => g.name);
+    return [];
+  }
+  function guestRowsToUI(rows){
+    const box=document.getElementById("meetingGuestsList");
+    if(!box) return;
+    meetingGuestRows=(rows||[]).map((g,i)=>({id:g.id || ("row-"+i), name:g.name||"", status:""}));
+    if(!meetingGuestRows.length) meetingGuestRows=[{id:"row-1",name:"",status:""}];
+    box.innerHTML=meetingGuestRows.map((g,i)=>`<div data-guest-row="${i}" class="card" style="padding:10px;margin-top:8px;background:var(--surface-2);border-radius:12px;box-shadow:none;">
+      <div style="display:grid;grid-template-columns:minmax(0,1fr) auto;gap:7px;align-items:end;">
+        <div><label style="font-size:11px;color:var(--text-dim);">Invitado ${i+1}</label><input data-guest-name value="${esc(g.name)}" placeholder="Nombre del invitado" /></div>
+        <button type="button" class="btn-danger" data-remove-guest style="padding:8px 9px;">Quitar</button>
+      </div>
+    </div>`).join("");
+    box.querySelectorAll("[data-guest-row]").forEach(row=>{
+      const idx=Number(row.dataset.guestRow);
+      row.querySelector("[data-guest-name]").oninput=e=>{ meetingGuestRows[idx].name=e.target.value; };
+      row.querySelector("[data-remove-guest]").onclick=()=>{ meetingGuestRows.splice(idx,1); guestRowsToUI(meetingGuestRows); };
+    });
+  }
+  async function promoteGuestToMember(name, meetingDateValue){
+    const clean=String(name||"").trim(); if(!clean) return null;
+    const norm=normalizeGuestName(clean);
+    const existing=people.find(p=>normalizeGuestName(p.name)===norm);
+    if(existing){
+      if(existing.active===false) await db.doc("groups/"+currentGroupId+"/people/"+existing.id).update({active:true});
+      return existing.id;
+    }
+    const ref=await db.collection("groups/"+currentGroupId+"/people").add({name:clean,active:true,memberType:"Miembro",joinDate:meetingDateValue||todayISO(),guestOrigin:true,createdAt:Date.now()});
+    people.push({id:ref.id,name:clean,active:true,memberType:"Miembro",joinDate:meetingDateValue||todayISO(),guestOrigin:true});
+    return ref.id;
+  }
+  async function upsertGuestRecord(guest, meetingDateValue){
+    const clean=String(guest.name||"").trim(); if(!clean) return null;
+    const norm=normalizeGuestName(clean);
+    let ref=null;
+    try {
+      const q=await db.collection("groups/"+currentGroupId+"/guests").limit(300).get();
+      const existing=q.docs.find(d=>normalizeGuestName((d.data()||{}).name)===norm);
+      if(existing) ref=existing.ref;
+    } catch(e) { /* si falla la consulta, se crea un registro nuevo */ }
+    if(!ref) ref=db.collection("groups/"+currentGroupId+"/guests").doc();
+    const existingData = ref ? ((await ref.get()).data() || {}) : {};
+    const effectiveStatus = guest.status || existingData.status || "";
+    const payload={name:clean,normalizedName:norm,status:effectiveStatus,firstMeetingDate:guest.firstMeetingDate||existingData.firstMeetingDate||meetingDateValue||todayISO(),lastMeetingDate:meetingDateValue||todayISO(),updatedAt:Date.now()};
+    if(guest.status==="continues"){
+      const memberId=await promoteGuestToMember(clean,meetingDateValue);
+      payload.memberId=memberId; payload.continuedAt=payload.continuedAt||Date.now(); payload.active=false;
+    } else {
+      payload.active=true;
+    }
+    await ref.set(payload,{merge:true});
+    return ref.id;
+  }
+  async function loadGuestList(){
+    const box=document.getElementById("guestList"); if(!box) return;
+    try{
+      // Fuente principal: subcolección guests.
+      const snap=await db.collection("groups/"+currentGroupId+"/guests").limit(300).get();
+      let rows=snap.docs.map(d=>({id:d.id,...d.data()}));
+
+      // Compatibilidad/migración: reuniones guardadas antes de crear la subcolección
+      // también deben alimentar la lista de invitados.
+      if(!rows.length){
+        try{
+          const ms=await db.collection("groups/"+currentGroupId+"/meetings").orderBy("date","desc").limit(500).get();
+          const byName=new Map();
+          for(const d of ms.docs){
+            const m=d.data()||{};
+            const guests=legacyGuestsFromMeeting(m);
+            for(const g of guests){
+              const norm=normalizeGuestName(g.name); if(!norm) continue;
+              const prev=byName.get(norm);
+              const candidate={name:g.name.trim(),status:g.status||"",firstMeetingDate:m.date||todayISO(),lastMeetingDate:m.date||todayISO()};
+              if(!prev || String(candidate.lastMeetingDate)>String(prev.lastMeetingDate)){
+                candidate.firstMeetingDate=prev ? (prev.firstMeetingDate||candidate.firstMeetingDate) : candidate.firstMeetingDate;
+                byName.set(norm,candidate);
+              } else if(prev && (!prev.firstMeetingDate || String(candidate.firstMeetingDate)<String(prev.firstMeetingDate))){
+                prev.firstMeetingDate=candidate.firstMeetingDate;
+              }
+            }
+          }
+          rows=Array.from(byName.values());
+          // Persist the recovered records so future cargas no dependan de la migración.
+          for(const g of rows){ try{ await upsertGuestRecord(g,g.lastMeetingDate||todayISO()); }catch(e){} }
+          const migrated=await db.collection("groups/"+currentGroupId+"/guests").limit(300).get();
+          if(migrated.size) rows=migrated.docs.map(d=>({id:d.id,...d.data()}));
+        }catch(e){}
+      }
+      guestList=rows.sort((a,b)=>String(b.lastMeetingDate||"").localeCompare(String(a.lastMeetingDate||"")));
+      if(!guestList.length){ box.innerHTML='<div class="empty-state" style="padding:16px 8px;">Todavía no hay invitados registrados.</div>'; return; }
+      box.innerHTML=guestList.map(g=>`<div data-guest-id="${esc(g.id)}" style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:9px 2px;border-bottom:1px solid var(--border);">
+        <div style="min-width:0;flex:1;"><div style="font-weight:700;">${esc(g.name)}</div><div style="font-size:11px;color:var(--text-dim);margin-top:2px;">Primera visita: ${esc(g.firstMeetingDate||"—")}${g.lastMeetingDate&&g.lastMeetingDate!==g.firstMeetingDate?" · Última: "+esc(g.lastMeetingDate):""}</div></div>
+        <select data-guest-status style="width:130px;flex:0 0 130px;"><option value="continues" ${g.status==="continues"?"selected":""}>Continúa</option><option value="not_continues" ${g.status!=="continues"?"selected":""}>No continuó</option></select>
+      </div>`).join("");
+      box.querySelectorAll("[data-guest-id]").forEach(row=>row.querySelector("[data-guest-status]").onchange=async e=>{
+        const g=guestList.find(x=>x.id===row.dataset.guestId); if(!g) return;
+        setStatus("Actualizando invitado…");
+        try{ await upsertGuestRecord({...g,status:e.target.value},g.lastMeetingDate||todayISO()); await loadGuestList(); if(e.target.value==="continues") subscribePeople(); setStatus(e.target.value==="continues"?"Invitado agregado a miembros oficiales.":"Invitado actualizado."); }
+        catch(err){ setStatus("No se pudo actualizar el invitado ("+(err.code||"error")+")."); }
+      });
+    }catch(e){ box.innerHTML='<div class="empty-state" style="padding:16px 8px;">No se pudo cargar la lista de invitados.</div>'; }
+  }
+
+  // ---------- firebase config ----------
+  const firebaseConfig = {
+    apiKey: "AIzaSyDW_3jUk67PZO1Ln_hYm2grOeHzllHaO3c",
+    authDomain: "seguimiento-grupo-de-ora-9c26d.firebaseapp.com",
+    projectId: "seguimiento-grupo-de-ora-9c26d",
+    storageBucket: "seguimiento-grupo-de-ora-9c26d.firebasestorage.app",
+    messagingSenderId: "1066645694958",
+    appId: "1:1066645694958:web:141e48d171d8d61d0a86ff"
+  };
+
+  // ---------- init ----------
+  async function init(){
+    try {
+      firebase.initializeApp(firebaseConfig);
+      db = firebase.firestore();
+      downloadsCap = { save: nativeDownload };
+      await new Promise((resolve, reject) => {
+        let settled = false;
+        firebase.auth().onAuthStateChanged(async user => {
+          try {
+            authUser = user || null;
+            if (!user){
+              if (!settled) firebase.auth().signInAnonymously().catch(reject);
+              return;
+            }
+            institutionalSession = !user.isAnonymous;
+            appRole = "coordinator";
+            appProfile = null;
+            if (institutionalSession){
+              try {
+                const snap = await db.doc("appUsers/" + user.uid).get();
+                if (snap.exists){ appProfile = { id:snap.id, ...snap.data() }; appRole = appProfile.role || "supervisor"; }
+                else { appProfile = { id:user.uid, username:user.email || "", role:"supervisor", groupIds:[] }; appRole = "supervisor"; }
+              } catch(e){ appProfile = { id:user.uid, username:user.email || "", role:"supervisor", groupIds:[] }; appRole = "supervisor"; }
+            }
+            canUse = true;
+            if (!settled){ settled = true; resolve(); }
+            currentGroupId = safeLocalGet("lastGroupId") || null;
+            subscribeGroups();
+          } catch(e){ if(!settled){ settled=true; reject(e); } }
+        }, reject);
+      });
+    } catch(e){
+      setStatus("No se pudo conectar con la base de datos (" + (e && e.code ? e.code : "error") + ").");
+      renderNoDb();
+      return;
+    }
+  }
+
+  async function loadInstitutionalProfile(uid){
+    const snap = await db.doc("appUsers/" + uid).get();
+    if (!snap.exists) throw new Error("USER_PROFILE_NOT_FOUND");
+    appProfile = { id:snap.id, ...snap.data() };
+    appRole = appProfile.role || "supervisor";
+    institutionalSession = true;
+  }
+
+  function getAccountCreatorAuth(){
+    if (secondaryAuth) return secondaryAuth;
+    let app;
+    try { app = firebase.app("accountCreator"); } catch(e) { app = firebase.initializeApp(firebaseConfig, "accountCreator"); }
+    secondaryAuth = app.auth();
+    return secondaryAuth;
+  }
+
+  function openInstitutionalLogin(){
+    const host = document.getElementById("moreSheet");
+    if (!host) return;
+    host.style.display="block";
+    host.innerHTML = `<div class="more-sheet" id="loginBackdrop"><div class="more-panel" onclick="event.stopPropagation()">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;"><div><div style="font-size:18px;font-weight:850;">Acceso institucional</div><div style="font-size:12px;color:var(--text-dim);margin-top:2px;">Líderes y supervisores</div></div><button class="btn-ghost" id="closeLoginBtn">Cerrar</button></div>
+      <div style="display:flex;flex-direction:column;gap:9px;margin-top:14px;">
+        <label style="font-size:12px;color:var(--text-dim);">Usuario</label><input id="institutionalUser" autocomplete="username" placeholder="Usuario" />
+        <label style="font-size:12px;color:var(--text-dim);">Contraseña</label><input id="institutionalPass" type="password" autocomplete="current-password" placeholder="Contraseña" />
+        <div id="institutionalError" style="min-height:17px;color:var(--danger);font-size:12px;"></div>
+        <button class="btn" id="institutionalLoginBtn">Iniciar sesión</button>
+      </div>
+    </div></div>`;
+    const close=()=>{host.style.display="none";host.innerHTML="";};
+    document.getElementById("closeLoginBtn").onclick=close;
+    document.getElementById("loginBackdrop").onclick=close;
+    const doLogin=async()=>{
+      const u=document.getElementById("institutionalUser").value.trim();
+      const p=document.getElementById("institutionalPass").value;
+      const err=document.getElementById("institutionalError"); err.textContent="";
+      if(!u||!p){err.textContent="Escribe usuario y contraseña.";return;}
+      try{
+        setStatus("Iniciando sesión…");
+        // El usuario institucional se guarda como correo de Firebase. También aceptamos un correo completo.
+        const email = u.includes("@") ? u : u + "@seguimiento-grupos.app";
+        await firebase.auth().signInWithEmailAndPassword(email,p);
+        close(); setStatus("Sesión iniciada.");
+      }catch(e){err.textContent="Usuario o contraseña incorrectos.";setStatus("");}
+    };
+    document.getElementById("institutionalLoginBtn").onclick=doLogin;
+    document.getElementById("institutionalPass").onkeydown=e=>{if(e.key==="Enter")doLogin();};
+  }
+
+
+  function blobToDataUrl(blob){
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+  }
+
+  async function nativeDownload({ filename, data }){
+    // Appilix: usar primero su módulo nativo File Downloader.
+    // Al activar el módulo, Appilix intercepta los enlaces de descarga y
+    // guarda el archivo en el dispositivo, mostrando su propio progreso.
+    const isAppilix = typeof window.appilix !== "undefined";
+
+    try {
+      const url = URL.createObjectURL(data);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      a.setAttribute("download", filename);
+      a.style.display = "none";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+
+      // Dar tiempo al WebView/Appilix para tomar el enlace antes de liberar
+      // el objeto Blob. En Appilix el File Downloader gestiona el guardado.
+      setTimeout(() => URL.revokeObjectURL(url), isAppilix ? 30000 : 5000);
+      return { status: isAppilix ? "download_started" : "saved" };
+    } catch(e){
+      // Respaldo para navegadores que no acepten Blob URLs.
+      try {
+        const dataUrl = await blobToDataUrl(data);
+        const a2 = document.createElement("a");
+        a2.href = dataUrl;
+        a2.download = filename;
+        a2.setAttribute("download", filename);
+        a2.style.display = "none";
+        document.body.appendChild(a2);
+        a2.click();
+        a2.remove();
+        return { status: "saved" };
+      } catch(err){
+        // Último respaldo: compartir el archivo si el dispositivo lo soporta.
+        if (navigator.canShare && navigator.share){
+          const file = new File([data], filename, { type: data.type || "application/octet-stream" });
+          if (navigator.canShare({ files: [file] })) {
+            await navigator.share({ files: [file], title: filename });
+            return { status: "shared" };
+          }
+        }
+        throw err;
+      }
+    }
+  }
+
+  function renderNoDb(){
+    document.getElementById("groupBar").innerHTML = "";
+    document.getElementById("bottomNav").innerHTML = "";
+    document.getElementById("content").innerHTML =
+      '<div class="card" style="padding:16px;">No se pudo conectar con la base de datos. Revisa tu conexión a internet e intenta de nuevo.</div>';
+  }
+
+  function visibleGroupsFrom(allGroups){
+    if (isLeader()) return allGroups.slice();
+    if (isSupervisor()) {
+      const allowed = new Set(Array.isArray(appProfile?.groupIds) ? appProfile.groupIds : []);
+      return allGroups.filter(g => allowed.has(g.id));
+    }
+    return allGroups.slice();
+  }
+
+  function subscribeGroups(){
+    if (unsubGroups) unsubGroups();
+    unsubGroups = db.collection("groups").orderBy("name","asc").onSnapshot(snap => {
+      const allGroups = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      groups = visibleGroupsFrom(allGroups);
+      if (!currentGroupId && groups.length){
+        currentGroupId = groups[0].id;
+        safeLocalSet("lastGroupId", currentGroupId);
+      }
+      if (currentGroupId && !groups.find(g => g.id === currentGroupId)){
+        currentGroupId = groups.length ? groups[0].id : null;
+        safeLocalSet("lastGroupId", currentGroupId || "");
+      }
+      refreshGroupAccess();
+    }, err => {
+      setStatus("No se pudieron cargar los grupos (" + err.code + ").");
+    });
+  }
+
+  function refreshGroupAccess(){
+    renderGroupBar();
+    if (isCurrentGroupLocked()){
+      if (unsubPeople){ unsubPeople(); unsubPeople = null; }
+      people = [];
+      situationsCache = {};
+      document.getElementById("bottomNav").innerHTML = "";
+      renderLockGate();
+    } else {
+      renderTabs();
+      subscribePeople();
+      renderContent();
+    }
+  }
+
+  function renderLockGate(){
+    const group = groups.find(g => g.id === currentGroupId);
+    document.getElementById("content").innerHTML = `
+      <div class="card" style="padding:16px; max-width:360px;">
+        <div style="font-weight:700; margin-bottom:6px;">🔒 Este grupo está protegido</div>
+        <div style="font-size:13px; color:var(--text-dim); margin-bottom:10px;">
+          Ingresa la contraseña de "${esc(group ? group.name : "")}" para ver su información.
+        </div>
+        <input type="password" id="groupPasswordInput" placeholder="Contraseña del grupo" />
+        <div id="groupPasswordError" style="color:#b3453a; font-size:12px; margin-top:6px; min-height:16px;"></div>
+        <button class="btn" id="unlockGroupBtn" style="margin-top:8px;">Entrar</button>
+      </div>
+    `;
+    const tryUnlock = async () => {
+      const pass = document.getElementById("groupPasswordInput").value;
+      const errEl = document.getElementById("groupPasswordError");
+      errEl.textContent = "";
+      if (!pass) { errEl.textContent = "Escribe la contraseña."; return; }
+      const hash = await sha256Hex(pass);
+      if (group && hash === group.passwordHash){
+        markUnlocked(currentGroupId);
+        refreshGroupAccess();
+      } else {
+        errEl.textContent = "Contraseña incorrecta.";
+      }
+    };
+    document.getElementById("unlockGroupBtn").onclick = tryUnlock;
+    document.getElementById("groupPasswordInput").onkeydown = (e) => { if (e.key === "Enter") tryUnlock(); };
+  }
+
+  function subscribePeople(){
+    if (unsubPeople) unsubPeople();
+    people = [];
+    situationsCache = {};
+    if (!currentGroupId){ renderContent(); return; }
+    unsubPeople = db.collection("groups/" + currentGroupId + "/people").orderBy("name","asc").onSnapshot(snap => {
+      people = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      renderContent();
+    }, err => {
+      setStatus("No se pudieron cargar las personas (" + err.code + ").");
+    });
+  }
+
+  // ---------- group bar ----------
+  let showNewGroupForm = false;
+  let showEditGroupForm = false;
+  let showPasswordForm = false;
+
+  function renderGroupBar(){
+    const bar = document.getElementById("groupBar");
+    const options = groups.map(g => `<option value="${esc(g.id)}" ${g.id===currentGroupId?"selected":""}>${esc(g.name)}${g.passwordHash ? " 🔒" : ""}</option>`).join("");
+    const currentGroup = groups.find(g => g.id === currentGroupId);
+    bar.innerHTML = `
+      <div style="display:flex; flex-direction:column; gap:8px; width:100%;">
+        <div class="group-select-wrap">
+          <select id="groupSelect">
+            ${groups.length ? options : '<option value="">(sin grupos)</option>'}
+          </select>
+          <div class="group-actions">
+            ${(!institutionalSession || isLeader()) ? '<button class="btn-ghost" id="newGroupBtn" title="Crear grupo">＋</button>' : ''}
+            ${currentGroup && (!institutionalSession || isLeader()) ? '<button class="btn-ghost" id="editGroupBtn" title="Editar nombre">✎</button>' : ""}
+            ${currentGroup && !institutionalSession && !isCurrentGroupLocked() ? '<button class="btn-ghost" id="passwordBtn" title="Seguridad">🔒</button>' : ""}
+            ${institutionalSession ? '<span class="pill" style="align-self:center;background:#eef3ff;color:#0a2a63;white-space:nowrap;">'+esc(roleLabel())+'</span>' : '<button class="btn-ghost" id="institutionalAccessBtn" title="Acceso de líderes y supervisores">👤</button>'}
+            <button class="btn-danger" id="logoutBtn" title="Cerrar sesión">Salir</button>
+          </div>
+        </div>
+        <div id="newGroupForm" style="display:${showNewGroupForm ? "flex" : "none"}; flex-direction:column; gap:8px;">
+          <input id="newGroupName" placeholder="Nombre del nuevo grupo" />
+          <input id="newGroupPassword" type="password" placeholder="Contraseña para este grupo" />
+          <div style="font-size:12px; color:var(--text-dim);">Solo el coordinador de grupo que conozca esta contraseña podrá entrar a este grupo.</div>
+          <button class="btn" id="createGroupBtn" style="align-self:flex-start;">Crear</button>
+        </div>
+        ${currentGroup ? `
+        <div id="editGroupForm" style="display:${showEditGroupForm ? "flex" : "none"}; gap:8px;">
+          <input id="editGroupName" value="${esc(currentGroup.name)}" style="flex:1;" />
+          <button class="btn" id="saveGroupNameBtn">Guardar</button>
+        </div>` : ""}
+        ${currentGroup ? `
+        <div id="passwordForm" style="display:${showPasswordForm ? "flex" : "none"}; flex-direction:column; gap:8px;">
+          <input id="newPasswordInput" type="password" placeholder="Nueva contraseña" />
+          <div style="display:flex; gap:6px;">
+            <button class="btn" id="savePasswordBtn">Guardar contraseña</button>
+            ${currentGroup.passwordHash ? '<button class="btn-danger" id="removePasswordBtn">Quitar contraseña</button>' : ""}
+          </div>
+        </div>` : ""}
+      </div>
+    `;
+    document.getElementById("groupSelect").onchange = (e) => {
+      currentGroupId = e.target.value || null;
+      safeLocalSet("lastGroupId", currentGroupId || "");
+      showEditGroupForm = false;
+      showPasswordForm = false;
+      refreshGroupAccess();
+    };
+    const institutionalAccessBtn = document.getElementById("institutionalAccessBtn");
+    if (institutionalAccessBtn) institutionalAccessBtn.onclick = openInstitutionalLogin;
+    const logoutBtn = document.getElementById("logoutBtn");
+    logoutBtn.onclick = async () => {
+      currentGroupId = null;
+      safeLocalSet("lastGroupId", "");
+      unlockedGroups = new Set();
+      safeLocalSet("unlockedGroups", "[]");
+      activeTab = "inicio";
+      if (unsubPeople){ unsubPeople(); unsubPeople = null; }
+      people = [];
+      situationsCache = {};
+      if (institutionalSession){
+        try { await firebase.auth().signOut(); } catch(e){}
+      } else {
+        renderGroupBar(); renderTabs(); renderContent(); setStatus("Sesión cerrada. Selecciona un grupo para entrar nuevamente.");
+      }
+    };
+    document.getElementById("newGroupBtn").onclick = () => {
+      showNewGroupForm = !showNewGroupForm;
+      showEditGroupForm = false;
+      showPasswordForm = false;
+      renderGroupBar();
+      if (showNewGroupForm) document.getElementById("newGroupName").focus();
+    };
+    const createGroup = async () => {
+      const input = document.getElementById("newGroupName");
+      const name = input.value.trim();
+      const password = document.getElementById("newGroupPassword").value;
+      if (!name) { input.focus(); return; }
+      setStatus("Creando grupo…");
+      try {
+        const data = { name: name, createdAt: Date.now() };
+        if (password) data.passwordHash = await sha256Hex(password);
+        const ref = await db.collection("groups").add(data);
+        currentGroupId = ref.path.split("/").pop();
+        safeLocalSet("lastGroupId", currentGroupId);
+        if (password) markUnlocked(currentGroupId);
+        showNewGroupForm = false;
+        setStatus("");
+      } catch(e){ setStatus("Error al crear el grupo: " + e.code); }
+    };
+    document.getElementById("createGroupBtn").onclick = createGroup;
+    document.getElementById("newGroupName").onkeydown = (e) => { if (e.key === "Enter") createGroup(); };
+
+    const editGroupBtn = document.getElementById("editGroupBtn");
+    if (editGroupBtn){
+      editGroupBtn.onclick = () => {
+        showEditGroupForm = !showEditGroupForm;
+        showNewGroupForm = false;
+        showPasswordForm = false;
+        renderGroupBar();
+        if (showEditGroupForm) document.getElementById("editGroupName").focus();
+      };
+      const saveGroupName = async () => {
+        const input = document.getElementById("editGroupName");
+        const name = input.value.trim();
+        if (!name) { input.focus(); return; }
+        setStatus("Guardando nombre del grupo…");
+        try {
+          await db.doc("groups/" + currentGroupId).update({ name });
+          showEditGroupForm = false;
+          setStatus("");
+        } catch(e){ setStatus("Error: " + e.code); }
+      };
+      document.getElementById("saveGroupNameBtn").onclick = saveGroupName;
+      document.getElementById("editGroupName").onkeydown = (e) => { if (e.key === "Enter") saveGroupName(); };
+    }
+
+    const passwordBtn = document.getElementById("passwordBtn");
+    if (passwordBtn){
+      passwordBtn.onclick = () => {
+        showPasswordForm = !showPasswordForm;
+        showNewGroupForm = false;
+        showEditGroupForm = false;
+        renderGroupBar();
+        if (showPasswordForm) document.getElementById("newPasswordInput").focus();
+      };
+      const savePassword = async () => {
+        const input = document.getElementById("newPasswordInput");
+        const password = input.value;
+        if (!password) { input.focus(); return; }
+        setStatus("Guardando contraseña…");
+        try {
+          const passwordHash = await sha256Hex(password);
+          await db.doc("groups/" + currentGroupId).update({ passwordHash });
+          markUnlocked(currentGroupId);
+          showPasswordForm = false;
+          setStatus("");
+        } catch(e){ setStatus("Error: " + e.code); }
+      };
+      document.getElementById("savePasswordBtn").onclick = savePassword;
+      document.getElementById("newPasswordInput").onkeydown = (e) => { if (e.key === "Enter") savePassword(); };
+      const removeBtn = document.getElementById("removePasswordBtn");
+      if (removeBtn){
+        removeBtn.onclick = async () => {
+          if (removeBtn.dataset.confirming !== "1"){
+            removeBtn.dataset.confirming = "1";
+            removeBtn.textContent = "¿Seguro? Toca de nuevo";
+            setTimeout(() => { removeBtn.dataset.confirming = "0"; removeBtn.textContent = "Quitar contraseña"; }, 4000);
+            return;
+          }
+          setStatus("Quitando contraseña…");
+          try {
+            await db.doc("groups/" + currentGroupId).update({ passwordHash: null });
+            showPasswordForm = false;
+            setStatus("");
+          } catch(e){ setStatus("Error: " + e.code); }
+        };
+      }
+    }
+  }
+
+  // ---------- navegación ----------
+  function renderTabs(){
+    const nav = document.getElementById("bottomNav");
+    if (!nav) return;
+    const items = [
+      ["inicio","🏠","Inicio"],
+      ["reuniones","📅","Reuniones"],
+      ["personas","👥","Personas"],
+      ["plan","🗓️","Plan"],
+      ["more","☰","Más"]
+    ];
+    nav.innerHTML = items.map(([id,icon,label]) => {
+      const active = id === activeTab || (id === "more" && ["asistencia","cumpleanos","informes"].includes(activeTab));
+      return `<button class="nav-item ${active ? "active" : ""}" data-nav="${id}"><span class="nav-icon">${icon}</span><span>${label}</span></button>`;
+    }).join("");
+    nav.querySelectorAll("[data-nav]").forEach(btn => {
+      btn.onclick = () => {
+        const id = btn.dataset.nav;
+        if (id === "more") { openMoreSheet(); return; }
+        activeTab = id;
+        closeMoreSheet();
+        renderTabs();
+        renderContent();
+      };
+    });
+  }
+
+  function openMoreSheet(){
+    const host = document.getElementById("moreSheet");
+    if (!host) return;
+    host.style.display = "block";
+    host.innerHTML = `
+      <div class="more-sheet" id="moreBackdrop">
+        <div class="more-panel" onclick="event.stopPropagation()">
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;">
+            <div><div style="font-size:18px;font-weight:850;">Más herramientas</div><div style="font-size:12px;color:var(--text-dim);margin-top:2px;">Funciones adicionales del grupo</div></div>
+            <button class="btn-ghost" id="closeMoreBtn">Cerrar</button>
+          </div>
+          <div class="more-grid">
+            <button class="more-item" data-more="asistencia"><span>✅</span>Asistencia<small style="display:block;color:var(--text-dim);font-weight:500;margin-top:3px;">Control semanal</small></button>
+            <button class="more-item" data-more="cumpleanos"><span>🎂</span>Cumpleaños<small style="display:block;color:var(--text-dim);font-weight:500;margin-top:3px;">Fechas del grupo</small></button>
+            <button class="more-item" data-more="informes"><span>📊</span>Informes<small style="display:block;color:var(--text-dim);font-weight:500;margin-top:3px;">Reportes y Excel</small></button>
+            <button class="more-item" data-more="config"><span>⚙️</span>Configuración<small style="display:block;color:var(--text-dim);font-weight:500;margin-top:3px;">Grupo y seguridad</small></button>
+            ${isLeader() ? '<button class="more-item" data-more="usuarios"><span>👥</span>Usuarios y permisos<small style="display:block;color:var(--text-dim);font-weight:500;margin-top:3px;">Supervisores y grupos asignados</small></button>' : ''}
+            ${!institutionalSession ? '<button class="more-item" data-more="login"><span>🔐</span>Acceso institucional<small style="display:block;color:var(--text-dim);font-weight:500;margin-top:3px;">Líderes y supervisores</small></button>' : ''}
+          </div>
+        </div>
+      </div>`;
+    document.getElementById("closeMoreBtn").onclick = closeMoreSheet;
+    document.getElementById("moreBackdrop").onclick = closeMoreSheet;
+    host.querySelectorAll("[data-more]").forEach(btn => {
+      btn.onclick = () => {
+        const id = btn.dataset.more;
+        if (id === "config") { closeMoreSheet(); showPasswordForm = false; showEditGroupForm = true; renderGroupBar(); setStatus("Puedes editar el nombre del grupo desde la parte superior."); return; }
+        if (id === "login") { closeMoreSheet(); openInstitutionalLogin(); return; }
+        if (id === "usuarios") { activeTab="usuarios"; closeMoreSheet(); renderTabs(); renderContent(); return; }
+        activeTab = id; closeMoreSheet(); renderTabs(); renderContent();
+      };
+    });
+  }
+
+  function closeMoreSheet(){
+    const host = document.getElementById("moreSheet");
+    if (host) { host.style.display = "none"; host.innerHTML = ""; }
+  }
+
+  function renderContent(){
+    if (!canUse) return;
+    if (!currentGroupId){
+      document.getElementById("content").innerHTML = `
+        <div class="empty-state card">
+          <div style="font-size:42px;">🙏</div>
+          <div style="font-size:17px;font-weight:800;color:var(--text);margin-top:8px;">Comienza creando tu grupo</div>
+          <div style="margin-top:5px;">Usa el botón ＋ junto al selector de grupo.</div>
+        </div>`;
+      return;
+    }
+    if (activeTab === "inicio") renderDashboard();
+    else if (activeTab === "personas") renderPersonas();
+    else if (activeTab === "asistencia") renderAsistencia();
+    else if (activeTab === "reuniones") renderReuniones();
+    else if (activeTab === "cumpleanos") renderCumpleanos();
+    else if (activeTab === "plan") renderPlanReuniones();
+    else if (activeTab === "usuarios") renderUsuariosPermisos();
+    else renderInformes();
+  }
+
+  async function renderUsuariosPermisos(){
+    const el=document.getElementById("content");
+    if(!isLeader()){ el.innerHTML='<div class="card empty-state">No tienes permisos para administrar usuarios.</div>'; return; }
+    let users=[];
+    try{ const snap=await db.collection("appUsers").where("role","==","supervisor").get(); users=snap.docs.map(d=>({id:d.id,...d.data()})); }catch(e){}
+    const allGroups=groups.slice();
+    const groupName=id => { const g=allGroups.find(x=>x.id===id); return g ? g.name : id; };
+    el.innerHTML=`<div class="card" style="padding:15px;margin-bottom:12px;">
+      <div style="font-size:17px;font-weight:850;">👥 Usuarios y permisos</div>
+      <div style="font-size:12px;color:var(--text-dim);margin-top:4px;">${esc(roleLabel())}. Los supervisores solo podrán entrar a los grupos que les asignes y no necesitarán la contraseña de esos grupos.</div>
+    </div>
+    <div class="card" style="padding:15px;margin-bottom:12px;">
+      <div style="font-weight:800;margin-bottom:10px;">Nuevo supervisor</div>
+      <div style="display:grid;gap:8px;">
+        <input id="supUsername" autocomplete="username" placeholder="Usuario" />
+        <input id="supPassword" type="password" autocomplete="new-password" placeholder="Contraseña" />
+        <div style="font-size:12px;color:var(--text-dim);">Selecciona los grupos a los que tendrá acceso:</div>
+        <div id="supGroups" style="display:grid;grid-template-columns:repeat(2,1fr);gap:7px;max-height:240px;overflow:auto;">${allGroups.map(g=>`<label style="display:flex;align-items:center;gap:6px;padding:7px;border:1px solid var(--border);border-radius:10px;font-size:12px;"><input type="checkbox" value="${esc(g.id)}" style="width:auto;" />${esc(g.name)}</label>`).join("")}</div>
+        <button class="btn" id="saveSupervisorBtn">Crear / actualizar supervisor</button>
+      </div>
+    </div>
+    <div class="card" style="padding:15px;"><div style="font-weight:800;margin-bottom:8px;">Supervisores registrados</div><div id="supervisorList">${users.length?users.map(u=>`<div style="padding:10px 0;border-bottom:1px solid var(--border);"><div style="display:flex;justify-content:space-between;gap:8px;align-items:center;"><div style="font-weight:800;">${esc(u.username||u.email||u.id)}</div><span class="pill" style="background:#eef3ff;color:#0a2a63;">Supervisor</span></div><div style="font-size:12px;color:var(--text-dim);margin-top:3px;">${(u.groupIds||[]).map(groupName).map(esc).join(", ")||"Sin grupos asignados"}</div></div>`).join(""):'<div style="color:var(--text-dim);font-size:13px;">No hay supervisores registrados.</div>'}</div></div>`;
+    document.getElementById("saveSupervisorBtn").onclick=async()=>{
+      const username=document.getElementById("supUsername").value.trim();
+      const password=document.getElementById("supPassword").value;
+      const groupIds=Array.from(document.querySelectorAll("#supGroups input:checked")).map(x=>x.value);
+      if(!username){setStatus("Indica el usuario del supervisor.");return;}
+      if(!groupIds.length){setStatus("Selecciona al menos un grupo.");return;}
+      const email = username.includes("@") ? username : username + "@seguimiento-grupos.app";
+      setStatus("Guardando supervisor…");
+      try{
+        const existingSnap = await db.collection("appUsers").where("username","==",username).limit(1).get();
+        if(!existingSnap.empty){
+          const ref=existingSnap.docs[0].ref;
+          await ref.set({role:"supervisor",groupIds,updatedAt:Date.now()},{merge:true});
+          setStatus("Permisos del supervisor actualizados.");
+          await renderUsuariosPermisos();
+          return;
+        }
+        if(!password){setStatus("Para crear un supervisor nuevo debes indicar una contraseña.");return;}
+        const auth2=getAccountCreatorAuth();
+        const cred=await auth2.createUserWithEmailAndPassword(email,password);
+        await db.doc("appUsers/"+cred.user.uid).set({username, email, role:"supervisor", groupIds, createdAt:Date.now(), updatedAt:Date.now()});
+        await auth2.signOut();
+        setStatus("Supervisor creado correctamente.");
+        await renderUsuariosPermisos();
+      }catch(e){
+        const msg = e && e.code === "auth/email-already-in-use" ? "Ese usuario ya existe en Firebase Authentication. Si deseas asignarle grupos, registra su UID en Firebase o usa exactamente el usuario ya creado." : (e.code||e.message||"error");
+        setStatus("No se pudo guardar el supervisor: "+msg);
+      }
+    };
+  }
+
+  async function renderDashboard(){
+    const el = document.getElementById("content");
+    const activos = people.filter(p => p.active !== false);
+    const grupo = groups.find(g => g.id === currentGroupId);
+    const today = todayISO();
+    el.innerHTML = `
+      <div class="hero">
+        <div class="muted" style="font-size:12px;font-weight:700;">PANEL DEL GRUPO</div>
+        <div style="font-size:25px;font-weight:850;letter-spacing:-.6px;margin-top:4px;">¡Hola! 👋</div>
+        <div style="font-size:14px;margin-top:4px;">${esc(grupo ? grupo.name : "Grupo de Oración")}</div>
+        <div id="nextMeetingBox" style="margin-top:17px;padding-top:14px;border-top:1px solid rgba(255,255,255,.18);">Cargando próxima reunión…</div>
+      </div>
+
+      <div class="section-title">Resumen</div>
+      <div class="stat-grid">
+        <div class="card stat-card"><div class="stat-icon">👥</div><div class="stat-value">${activos.length}</div><div class="stat-label">Personas activas</div></div>
+        <div class="card stat-card"><div class="stat-icon">📅</div><div class="stat-value" id="dashMeetings">—</div><div class="stat-label">Reuniones registradas</div></div>
+        <div class="card stat-card"><div class="stat-icon">✅</div><div class="stat-value" id="dashAttendance">—</div><div class="stat-label">Última asistencia</div></div>
+        <div class="card stat-card"><div class="stat-icon">🎂</div><div class="stat-value" id="dashBirthdays">—</div><div class="stat-label">Cumpleaños próximos</div></div>
+      </div>
+
+      <div class="section-title">Accesos rápidos</div>
+      <div class="quick-grid">
+        <div class="card quick-card" data-quick="reuniones"><div class="qicon">📅</div><strong>Registrar reunión</strong><small>Guarda anfitrión, compartir e invitados.</small></div>
+        <div class="card quick-card" data-quick="asistencia"><div class="qicon">✅</div><strong>Tomar asistencia</strong><small>Marca quién estuvo presente.</small></div>
+        <div class="card quick-card" data-quick="personas"><div class="qicon">👥</div><strong>Gestionar personas</strong><small>Consulta y actualiza miembros.</small></div>
+        <div class="card quick-card" data-quick="informes"><div class="qicon">📊</div><strong>Ver informes</strong><small>Genera reportes y Excel.</small></div>
+      </div>
+
+      <div class="section-title">Estado del grupo</div>
+      <div class="card" style="padding:15px;display:flex;align-items:center;gap:12px;">
+        <div style="width:42px;height:42px;border-radius:14px;background:var(--ok-bg);display:grid;place-items:center;font-size:20px;">✓</div>
+        <div style="flex:1;"><div style="font-weight:800;">Grupo activo</div><div style="font-size:12px;color:var(--text-dim);margin-top:2px;">Los datos se sincronizan con Firebase.</div></div>
+        <span class="pill pill-superada">En línea</span>
+      </div>`;
+
+    el.querySelectorAll("[data-quick]").forEach(card => card.onclick = () => { activeTab = card.dataset.quick; renderTabs(); renderContent(); });
+    try {
+      const planSnap = await db.collection("groups/" + currentGroupId + "/meetingPlan").get();
+      const future = planSnap.docs.map(d => d.data()).filter(x => x.date && x.date >= today).sort((a,b) => a.date.localeCompare(b.date));
+      const next = future[0];
+      const box = document.getElementById("nextMeetingBox");
+      if (box) {
+        if (!next) box.innerHTML = '<div class="muted">No hay una reunión futura planificada.</div><button class="btn-ghost" id="dashPlanBtn" style="margin-top:10px;background:rgba(255,255,255,.1);border-color:rgba(255,255,255,.25);color:#fff;">Crear plan</button>';
+        else {
+          const host = people.find(p => p.id === next.hostId); const share = people.find(p => p.id === next.shareId);
+          const hostLabel = host ? host.name : "Sin anfitrión";
+          const shareLabel = next.shareId === "__DE_TRAJE__" ? "De traje" : (share ? share.name : "Sin compartir");
+          box.innerHTML = `<div class="muted" style="font-size:11px;font-weight:700;">PRÓXIMA REUNIÓN</div><div style="font-size:18px;font-weight:800;margin-top:3px;">${esc(planDateLabel(next.date))} · ${esc(next.weekday || "")}</div><div style="display:flex;gap:14px;flex-wrap:wrap;font-size:12px;margin-top:9px;"><span>🍽️ ${esc(shareLabel)}</span><span>🏠 ${esc(hostLabel)}</span></div>`;
+        }
+        const planBtn=document.getElementById("dashPlanBtn"); if(planBtn) planBtn.onclick=()=>{activeTab="plan";renderTabs();renderContent();};
+      }
+      const meetingsSnap = await db.collection("groups/" + currentGroupId + "/meetings").orderBy("date","desc").limit(50).get();
+      const mEl=document.getElementById("dashMeetings"); if(mEl) mEl.textContent=meetingsSnap.size;
+      const attSnap = await db.collection("groups/" + currentGroupId + "/attendance").orderBy("date","desc").limit(1).get();
+      const aEl=document.getElementById("dashAttendance");
+      if(aEl) {
+        const a=attSnap.docs[0];
+        if(a){
+          const attData=a.data()||{};
+          const presentMap = attData.present || {};
+          // El denominador histórico sale del propio registro de asistencia, no de la
+          // lista actual de miembros, para que un invitado que luego continúa no altere
+          // retroactivamente el porcentaje de una reunión pasada.
+          const registradosEnAsistencia = Object.keys(presentMap).length;
+          const totalOficiales = registradosEnAsistencia || activos.length;
+          const presentesOficiales = Object.keys(presentMap).filter(id => presentMap[id] === true).length;
+          let invitados=Array.isArray(attData.guests) ? attData.guests : [];
+          if(!invitados.length){
+            const mSnap=await db.doc("groups/"+currentGroupId+"/meetings/"+attData.date).get();
+            if(mSnap.exists) invitados=legacyGuestsFromMeeting(mSnap.data()).filter(g=>g.name);
+          }
+          const invitadosPresentes=invitados.length;
+          const total=totalOficiales+invitados.length;
+          const presentes=presentesOficiales+invitadosPresentes;
+          const pct=total ? Math.round((presentes/total)*100) : 0;
+          aEl.textContent=total ? pct+"%" : "0%";
+          aEl.title=total ? (presentes+"/"+total+" participantes · "+invitadosPresentes+" invitados") : "Sin miembros activos";
+        } else aEl.textContent="—";
+      }
+      const bCount=activos.filter(p=>{ if(!p.birthday)return false; const d=birthdayParts(p.birthday); const now=new Date(); const nextDate=new Date(now.getFullYear(),d.month,d.day); if(nextDate<new Date(now.getFullYear(),now.getMonth(),now.getDate())) nextDate.setFullYear(now.getFullYear()+1); return (nextDate-new Date())<=1000*60*60*24*30; }).length;
+      const bEl=document.getElementById("dashBirthdays"); if(bEl) bEl.textContent=bCount;
+    } catch(e) {
+      const box=document.getElementById("nextMeetingBox"); if(box) box.innerHTML='<div class="muted">No se pudo cargar el resumen en este momento.</div>';
+    }
+  }
+
+  // ============================================================
+  // TAB: PERSONAS
+  // ============================================================
+  let peopleSearchTerm = "";
+  let peopleTypeFilter = "";
+  let personAttendanceStats = {}; // personId -> {firstDate,lastDate,count}
+
+  function formatDateShort(dateStr){
+    if (!dateStr) return "—";
+    const parts = String(dateStr).split("-");
+    return parts.length === 3 ? parts[2] + "/" + parts[1] + "/" + parts[0] : String(dateStr);
+  }
+
+  async function loadPersonAttendanceStats(){
+    personAttendanceStats = {};
+    if (!currentGroupId) return;
+    try {
+      const snap = await db.collection("groups/" + currentGroupId + "/attendance").orderBy("date","asc").limit(500).get();
+      snap.docs.forEach(d => {
+        const a=d.data()||{}; const date=a.date||d.id; const present=a.present||{};
+        Object.keys(present).forEach(pid => {
+          if (present[pid] !== true) return;
+          if (!personAttendanceStats[pid]) personAttendanceStats[pid]={firstDate:date,lastDate:date,count:0};
+          const st=personAttendanceStats[pid];
+          st.count++;
+          if (!st.firstDate || date < st.firstDate) st.firstDate=date;
+          if (!st.lastDate || date > st.lastDate) st.lastDate=date;
+        });
+      });
+    } catch(e) { /* el control de asistencia seguirá funcionando aunque no pueda cargar el resumen */ }
+  }
+
+  function paintPersonAttendanceStats(){
+    document.querySelectorAll("[data-person-attendance]").forEach(el => {
+      const id=el.dataset.personAttendance; const st=personAttendanceStats[id];
+      if (st && st.count) {
+        el.innerHTML = `Ya asistió: <strong>Sí</strong> · Primera: <strong>${esc(formatDateShort(st.firstDate))}</strong> · Última: <strong>${esc(formatDateShort(st.lastDate))}</strong> · ${st.count} encuentro${st.count===1?"":"s"}`;
+      } else {
+        el.innerHTML = `Ya asistió: <strong>No</strong> · Sin asistencia registrada`;
+      }
+    });
+  }
+
+  function renderPersonas(){
+    const el = document.getElementById("content");
+    const activos = people.filter(p => p.active !== false);
+    const inactivos = people.filter(p => p.active === false);
+    const visible = activos.filter(p => {
+      const term = peopleSearchTerm.toLowerCase();
+      const matchesText = !term || (p.name || "").toLowerCase().includes(term) || (p.phone || "").toLowerCase().includes(term);
+      const matchesType = !peopleTypeFilter || (p.memberType || "") === peopleTypeFilter;
+      return matchesText && matchesType;
+    });
+    const inactiveVisible = inactivos.filter(p => {
+      const term = peopleSearchTerm.toLowerCase();
+      return !term || (p.name || "").toLowerCase().includes(term) || (p.phone || "").toLowerCase().includes(term);
+    });
+    el.innerHTML = `
+      <div class="card" style="padding:14px;margin-bottom:12px;">
+        <div style="display:flex;gap:8px;align-items:center;">
+          <input id="newPersonName" placeholder="Nombre de la persona" />
+          <button class="btn" id="addPersonBtn">＋ Agregar</button>
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;margin-bottom:12px;">
+        <div style="flex:1;position:relative;"><input id="peopleSearch" value="${esc(peopleSearchTerm)}" placeholder="🔎 Buscar persona…" /></div>
+        <select id="peopleTypeFilter" style="max-width:150px;">
+          <option value="">Todos</option><option value="Supervisor">Supervisor</option><option value="Coordinador">Coordinador</option><option value="Apoyo">Apoyo</option><option value="Miembro">Miembro</option>
+        </select>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin:4px 2px 9px;font-size:12px;color:var(--text-dim);"><span>${visible.length} de ${activos.length} personas</span><span>Miembros oficiales</span></div>
+      <div id="peopleList" style="display:flex; flex-direction:column; gap:10px;"></div>
+
+      <div class="section-title" style="margin-top:22px;">Miembros inactivos</div>
+      <div class="card" style="padding:12px;">
+        <div style="font-size:12px;color:var(--text-dim);margin-bottom:8px;">Aquí quedan las personas inactivadas. Se conserva la fecha de inactivación y puedes reactivarlas cuando corresponda.</div>
+        <div id="inactivePeopleList"></div>
+      </div>
+
+      <div class="section-title" style="margin-top:22px;">Invitados</div>
+      <div class="card" style="padding:12px;">
+        <div style="font-size:12px;color:var(--text-dim);margin-bottom:8px;">Aquí aparecen las personas registradas como invitadas. Al marcar <strong>Continúa</strong>, pasan a miembros oficiales.</div>
+        <div id="guestList"><div class="empty-state" style="padding:16px 8px;">Cargando invitados…</div></div>
+      </div>
+    `;
+    document.getElementById("peopleTypeFilter").value = peopleTypeFilter;
+    document.getElementById("peopleSearch").oninput = (e) => { peopleSearchTerm=e.target.value; renderPersonas(); const input=document.getElementById("peopleSearch"); if(input){input.focus();input.setSelectionRange(input.value.length,input.value.length);} };
+    document.getElementById("peopleTypeFilter").onchange = (e) => { peopleTypeFilter=e.target.value; renderPersonas(); };
+    document.getElementById("addPersonBtn").onclick = async () => {
+      const input = document.getElementById("newPersonName"); const name = input.value.trim(); if (!name) { input.focus(); return; }
+      setStatus("Agregando persona…");
+      try { await db.collection("groups/" + currentGroupId + "/people").add({ name, active: true, createdAt: Date.now() }); input.value = ""; setStatus("Persona agregada correctamente."); }
+      catch(e){ setStatus("Error: " + e.code); }
+    };
+    const list = document.getElementById("peopleList");
+    loadGuestList();
+    if (!visible.length){ list.innerHTML = '<div class="empty-state card">No encontramos personas con esos filtros.</div>'; }
+    visible.forEach(p => {
+      const card = document.createElement("div"); card.className="card"; card.style.padding="14px"; card.innerHTML=personCardHTML(p); list.appendChild(card); wirePersonCard(card,p); if(situationsCache[p.id]===undefined) loadSituations(p.id);
+    });
+    const inactiveBox=document.getElementById("inactivePeopleList");
+    if(!inactiveVisible.length){ inactiveBox.innerHTML='<div class="empty-state" style="padding:12px 8px;">No hay miembros inactivos.</div>'; }
+    else {
+      inactiveBox.innerHTML=inactiveVisible.map(p=>inactivePersonCardHTML(p)).join("");
+      inactiveBox.querySelectorAll("[data-act=reactivate]").forEach(btn=>{
+        btn.onclick=async()=>{
+          const pid=btn.dataset.personId;
+          try {
+            await db.doc("groups/"+currentGroupId+"/people/"+pid).update({active:true,reactivatedAt:todayISO()});
+            setStatus("Miembro reactivado correctamente.");
+          } catch(e){ setStatus("Error: "+e.code); }
+        };
+      });
+    }
+  }
+
+  function inactivePersonCardHTML(p){
+    const history=Array.isArray(p.deactivationHistory)?p.deactivationHistory:[];
+    const lastDate=p.deactivatedAt || (history.length ? history[history.length-1].date : null);
+    return `<div class="card" style="padding:12px;margin-bottom:9px;background:var(--surface-2);box-shadow:none;">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;">
+        <div style="min-width:0;flex:1;">
+          <div style="font-weight:800;font-size:14px;">${esc(p.name)}</div>
+          <div style="font-size:11px;color:var(--text-dim);margin-top:3px;">${esc(p.memberType||"Miembro")} · Inactivo</div>
+          <div style="font-size:12px;color:var(--text-dim);margin-top:5px;">Fecha de inactivación: <strong>${esc(formatDateShort(lastDate))}</strong>${p.reactivatedAt?" · Última reactivación: "+esc(formatDateShort(p.reactivatedAt)):""}</div>
+        </div>
+        <button class="btn" data-act="reactivate" data-person-id="${esc(p.id)}" style="padding:6px 10px;">Reactivar</button>
+      </div>
+    </div>`;
+  }
+
+  function timeSince(dateStr){
+    if (!dateStr) return "";
+    const start = new Date(dateStr + "T00:00:00");
+    if (isNaN(start.getTime())) return "";
+    const now = new Date();
+    let months = (now.getFullYear() - start.getFullYear()) * 12 + (now.getMonth() - start.getMonth());
+    if (now.getDate() < start.getDate()) months--;
+    if (months < 0) months = 0;
+    const years = Math.floor(months / 12);
+    const remMonths = months % 12;
+    const parts = [];
+    if (years > 0) parts.push(years + (years === 1 ? " año" : " años"));
+    if (remMonths > 0 || years === 0) parts.push(remMonths + (remMonths === 1 ? " mes" : " meses"));
+    return parts.join(", ");
+  }
+
+  const MONTH_NAMES = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
+
+  function birthdayParts(dateStr){
+    if (!dateStr) return null;
+    const d = new Date(dateStr + "T00:00:00");
+    if (isNaN(d.getTime())) return null;
+    return { month: d.getMonth(), day: d.getDate() };
+  }
+
+  function formatBirthdayShort(dateStr){
+    const parts = birthdayParts(dateStr);
+    if (!parts) return "";
+    return parts.day + " de " + MONTH_NAMES[parts.month];
+  }
+
+  function personDetailsSummary(p){
+    const parts = [];
+    if (p.unionFree) {
+      let union = "Unión libre" + (p.partnerName ? " con " + p.partnerName : "");
+      if (p.unionFrom) union += " desde " + p.unionFrom;
+      if (p.unionCurrent) union += " · Actualidad";
+      else if (p.unionTo) union += " hasta " + p.unionTo;
+      parts.push(union);
+    } else if (!p.married) {
+      parts.push("Soltero(a)");
+    }
+    if (p.married) {
+      let marriage = "Casado(a)" + (p.spouseName ? " con " + p.spouseName : "");
+      if (p.marriageDate) marriage += " desde " + p.marriageDate;
+      if (p.marriageYears != null && p.marriageYears !== "") marriage += " (" + p.marriageYears + (Number(p.marriageYears)===1?" año":" años") + ")";
+      parts.push(marriage);
+    }
+    if (p.memberType) parts.push("Tipo: " + p.memberType);
+    if (p.sex) parts.push("Sexo: " + p.sex);
+    parts.push(p.hasChildren ? "Hijos: " + (p.childrenCount != null && p.childrenCount !== "" ? p.childrenCount : "sí") : "Sin hijos");
+    if (p.phone) parts.push("Cel: " + p.phone);
+    if (p.birthday) parts.push("Cumpleaños: " + formatBirthdayShort(p.birthday));
+    if (p.joinDate){
+      const dur = timeSince(p.joinDate);
+      parts.push("En el grupo desde " + p.joinDate + (dur ? " (" + dur + ")" : ""));
+    }
+    return parts.join(" · ");
+  }
+
+  function marriageDurationYears(dateStr){
+    if (!dateStr) return null;
+    const start = new Date(dateStr + "T00:00:00");
+    if (isNaN(start.getTime())) return null;
+    const now = new Date();
+    let years = now.getFullYear() - start.getFullYear();
+    const anniversary = new Date(now.getFullYear(), start.getMonth(), start.getDate());
+    if (now < anniversary) years--;
+    return Math.max(0, years);
+  }
+
+  function personCardHTML(p){
+    return `
+      <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:9px;">
+        <div style="display:flex;align-items:center;gap:10px;min-width:0;flex:1;">
+          <div style="width:38px;height:38px;border-radius:12px;background:var(--accent-soft);display:grid;place-items:center;font-size:18px;flex:0 0 auto;">👤</div>
+          <div style="min-width:0;flex:1;"><div style="font-weight:800;font-size:15px;line-height:1.25;">${esc(p.name)}</div><div style="font-size:11px;color:var(--text-dim);margin-top:3px;">${esc(p.memberType || "Miembro")}${p.sex ? " · " + esc(p.sex) : ""}${p.active === false ? " · Inactivo" : ""}</div></div>
+        </div>
+        <div style="display:flex; gap:5px; flex-wrap:wrap; align-items:center;">
+          <button class="btn-ghost" data-act="toggle-person-details" aria-expanded="false" style="padding:5px 9px;font-size:12px;">Ver detalle⌄</button>
+          <button class="btn-ghost" data-act="toggle-edit-person" style="padding:5px 9px;font-size:12px;">Editar</button>
+          <button class="btn-ghost" data-act="toggle-sit-form" style="padding:5px 9px;font-size:12px;">+ Situación</button>
+          <button class="btn-ghost" data-act="view-profile" style="padding:5px 9px;font-size:12px;">Perfil</button>
+          <button class="btn-danger" data-act="deactivate">Inactivar</button>
+          <button class="btn-danger" data-act="delete-person">Eliminar</button>
+        </div>
+      </div>
+      <div style="margin:7px 0 0 48px;font-size:12px;color:var(--text-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(p.phone ? "Cel. " + p.phone : (p.birthday ? "Cumpleaños " + formatBirthdayShort(p.birthday) : "Información adicional disponible"))}</div>
+      <div style="margin:6px 0 0 48px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:11px;color:var(--text-dim);">
+        <label style="font-weight:700;color:var(--text-dim);">¿Ya asistió al retiro espiritual?</label>
+        <select data-role="edit-retreat-attended" style="width:auto;min-width:110px;padding:5px 8px;font-size:12px;">
+          <option value="" ${p.retreatAttended === undefined || p.retreatAttended === null ? "selected" : ""}>Seleccionar</option>
+          <option value="true" ${p.retreatAttended === true ? "selected" : ""}>Sí</option>
+          <option value="false" ${p.retreatAttended === false ? "selected" : ""}>No</option>
+        </select>
+      </div>
+      <div data-role="person-edit-form" style="display:none; margin-top:10px; padding:10px; background:var(--surface-2); border-radius:10px; flex-direction:column; gap:8px;">
+        <input data-role="person-name-input" value="${esc(p.name)}" placeholder="Nombre de la persona" />
+        <div>
+          <label style="font-size:12px; color:var(--text-dim);">Número de celular</label>
+          <input type="tel" data-role="edit-phone" value="${esc(p.phone || "")}" placeholder="Número de celular" />
+        </div>
+        <div>
+          <label style="font-size:12px; color:var(--text-dim);">Fecha de cumpleaños</label>
+          <input type="date" data-role="edit-birthday" value="${esc(p.birthday || "")}" />
+        </div>
+        <div>
+          <label style="font-size:12px; color:var(--text-dim);">Tipo dentro del grupo</label>
+          <select data-role="edit-member-type">
+            <option value="" ${!p.memberType ? "selected" : ""}>Seleccionar</option>
+            <option value="Supervisor" ${p.memberType === "Supervisor" ? "selected" : ""}>Supervisor</option>
+            <option value="Coordinador" ${p.memberType === "Coordinador" ? "selected" : ""}>Coordinador</option>
+            <option value="Apoyo" ${p.memberType === "Apoyo" ? "selected" : ""}>Apoyo</option>
+            <option value="Miembro" ${p.memberType === "Miembro" ? "selected" : ""}>Miembro</option>
+          </select>
+        </div>
+        <div>
+          <label style="font-size:12px; color:var(--text-dim);">Sexo</label>
+          <select data-role="edit-sex">
+            <option value="" ${!p.sex ? "selected" : ""}>Seleccionar</option>
+            <option value="Masculino" ${p.sex === "Masculino" ? "selected" : ""}>Masculino</option>
+            <option value="Femenino" ${p.sex === "Femenino" ? "selected" : ""}>Femenino</option>
+          </select>
+        </div>
+        <label style="display:flex; align-items:center; gap:6px; font-size:13px;">
+          <input type="checkbox" data-role="edit-union-free" ${p.unionFree ? "checked" : ""} style="width:auto;" /> ¿Está en unión libre?
+        </label>
+        <div data-role="union-fields" style="display:${p.unionFree ? "flex" : "none"}; flex-direction:column; gap:6px;">
+          <input data-role="edit-partner" value="${esc(p.partnerName || "")}" placeholder="Nombre del compañero/a" />
+          <div style="display:flex; gap:6px;">
+            <div style="flex:1;"><label style="font-size:12px; color:var(--text-dim);">Desde</label><input type="date" data-role="edit-union-from" value="${esc(p.unionFrom || "")}" /></div>
+            <div style="flex:1;"><label style="font-size:12px; color:var(--text-dim);">Hasta</label><input type="date" data-role="edit-union-to" value="${esc(p.unionTo || "")}" /></div>
+          </div>
+          <label style="display:flex; align-items:center; gap:6px; font-size:13px;"><input type="checkbox" data-role="edit-union-current" ${p.unionCurrent ? "checked" : ""} style="width:auto;" /> Actualidad</label>
+        </div>
+
+        <label style="display:flex; align-items:center; gap:6px; font-size:13px;">
+          <input type="checkbox" data-role="edit-married" ${p.married ? "checked" : ""} style="width:auto;" /> ¿Está casado(a)?
+        </label>
+        <div data-role="married-fields" style="display:${p.married ? "flex" : "none"}; flex-direction:column; gap:6px;">
+          <input data-role="edit-spouse" value="${esc(p.spouseName || "")}" placeholder="Nombre del cónyuge" />
+          <div>
+            <label style="font-size:12px; color:var(--text-dim);">Fecha en que se casó</label>
+            <input type="date" data-role="edit-marriage-date" value="${esc(p.marriageDate || "")}" />
+          </div>
+          <input type="number" min="0" data-role="edit-marriage-years" value="${p.marriageYears != null ? p.marriageYears : ""}" placeholder="Años de casado(a)" />
+        </div>
+
+        <label style="display:flex; align-items:center; gap:6px; font-size:13px;">
+          <input type="checkbox" data-role="edit-has-children" ${p.hasChildren ? "checked" : ""} style="width:auto;" /> ¿Tiene hijos?
+        </label>
+        <div data-role="children-fields" style="display:${p.hasChildren ? "flex" : "none"}; flex-direction:column; gap:6px;">
+          <input type="number" min="0" data-role="edit-children-count" value="${p.childrenCount != null ? p.childrenCount : ""}" placeholder="Cantidad de hijos" />
+        </div>
+
+        <div>
+          <label style="font-size:12px; color:var(--text-dim);">Fecha en que se unió al grupo</label>
+          <input type="date" data-role="edit-join-date" value="${esc(p.joinDate || "")}" />
+        </div>
+
+        <div style="display:flex; gap:6px;">
+          <button class="btn" data-act="save-person-name">Guardar</button>
+          <button class="btn-ghost" data-act="cancel-edit-person">Cancelar</button>
+        </div>
+      </div>
+      <div data-role="sit-form" style="display:none; margin-top:10px; padding:10px; background:var(--surface-2); border-radius:10px;">
+        <div style="display:flex; flex-direction:column; gap:6px;">
+          <input data-role="sit-desc" placeholder="Situación con la que lucha" />
+          <div>
+            <label style="font-size:12px; color:var(--text-dim);">Tipo</label>
+            <select data-role="sit-category">
+              <option value="importante">Tema importante (siempre sale en el informe)</option>
+              <option value="otra" selected>Otra lucha o situación</option>
+            </select>
+          </div>
+          <div style="display:flex; gap:6px;">
+            <input data-role="sit-date" type="date" value="${todayISO()}" style="flex:1;" />
+            <select data-role="sit-status" style="flex:1;">
+              <option value="proceso">En proceso</option>
+              <option value="superada">Superada</option>
+            </select>
+          </div>
+          <button class="btn" data-act="save-sit">Guardar situación</button>
+        </div>
+      </div>
+      <div data-role="person-details" style="display:none;margin-top:10px;padding:11px;background:var(--surface-2);border:1px solid var(--border);border-radius:12px;">
+        <div style="font-size:11px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--text-dim);margin-bottom:5px;">Información personal</div>
+        <div style="font-size:12px;line-height:1.55;color:var(--text-dim);">${esc(personDetailsSummary(p) || "Sin información adicional registrada.")}</div>
+        <div data-role="situations" style="margin-top:10px;display:flex;flex-direction:column;gap:9px;">
+          <div style="color:var(--text-dim);font-size:12px;">Cargando situaciones…</div>
+        </div>
+      </div>
+    `;
+  }
+
+  function openPersonProfile(p){
+    const host=document.getElementById("moreSheet");
+    if(!host) return;
+    const situations=(situationsCache[p.id]||[]);
+    const important=situations.filter(x=>x.category==="importante" && x.status!=="superada").length;
+    const relationship = [];
+    if (p.unionFree) relationship.push("<div><b>Unión libre:</b> " + esc(p.partnerName || "Sin nombre") + (p.unionFrom ? " · desde " + esc(p.unionFrom) : "") + (p.unionCurrent ? " · actualidad" : (p.unionTo ? " · hasta " + esc(p.unionTo) : "")) + "</div>");
+    if (p.married) relationship.push("<div><b>Matrimonio:</b> " + esc(p.spouseName || "Sin nombre") + (p.marriageDate ? " · fecha: " + esc(p.marriageDate) : "") + (p.marriageYears != null && p.marriageYears !== "" ? " · " + esc(String(p.marriageYears)) + (Number(p.marriageYears)===1 ? " año" : " años") : "") + "</div>");
+    if (!relationship.length) relationship.push("<div><b>Estado civil:</b> Soltero(a)</div>");
+    const infoRows = [
+      ["Tipo dentro del grupo", p.memberType || "—"],
+      ["Sexo", p.sex || "—"],
+      ["Celular", p.phone || "—"],
+      ["Cumpleaños", p.birthday || "—"],
+      ["Ingreso al grupo", p.joinDate || "—"],
+      ["Hijos", p.hasChildren ? (p.childrenCount != null && p.childrenCount !== "" ? String(p.childrenCount) : "Sí") : "No"]
+    ];
+    host.style.display="block";
+    host.innerHTML=`<div class="more-sheet" id="profileBackdrop"><div class="more-panel" onclick="event.stopPropagation()">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;">
+        <div style="display:flex;align-items:center;gap:10px;min-width:0;"><div class="brand-mark" style="width:46px;height:46px;">👤</div><div style="min-width:0;"><div style="font-size:19px;font-weight:850;word-break:break-word;">${esc(p.name)}</div><div style="font-size:12px;color:var(--text-dim);margin-top:2px;">${esc(p.memberType||"Miembro")} ${p.sex?"· "+esc(p.sex):""}</div></div></div>
+        <button class="btn-ghost" id="closeProfileBtn">Cerrar</button>
+      </div>
+      <div class="stat-grid" style="margin-top:16px;">
+        <div class="card stat-card"><div class="stat-icon">📅</div><div class="stat-value" style="font-size:18px;">${esc(p.joinDate||"—")}</div><div class="stat-label">Ingreso al grupo</div></div>
+        <div class="card stat-card"><div class="stat-icon">🎂</div><div class="stat-value" style="font-size:18px;">${esc(p.birthday||"—")}</div><div class="stat-label">Cumpleaños</div></div>
+        <div class="card stat-card"><div class="stat-icon">📱</div><div class="stat-value" style="font-size:16px;">${esc(p.phone||"—")}</div><div class="stat-label">Celular</div></div>
+        <div class="card stat-card"><div class="stat-icon">🙏</div><div class="stat-value" style="font-size:18px;">${important}</div><div class="stat-label">Situaciones importantes</div></div>
+      </div>
+      <div class="section-title">Información personal</div>
+      <div class="card" style="padding:12px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 12px;">${infoRows.map(r=>`<div><div style="font-size:11px;color:var(--text-dim);">${esc(r[0])}</div><div style="font-size:13px;font-weight:700;">${esc(r[1])}</div></div>`).join("")}</div>
+      <div class="section-title">Estado familiar</div>
+      <div class="card" style="padding:12px;font-size:13px;line-height:1.7;">${relationship.join("")}</div>
+      <div class="section-title">Situaciones registradas</div>
+      <div class="card" style="padding:12px;">${situations.length ? situations.map(x=>`<div style="padding:8px 0;border-bottom:1px solid var(--border);"><b>${esc(x.description||"Situación")}</b><div style="font-size:11px;color:var(--text-dim);margin-top:3px;">${esc(x.date||"")} · ${esc(x.status||"")}</div></div>`).join("") : '<div style="font-size:13px;color:var(--text-dim);">Sin situaciones registradas.</div>'}</div>
+    </div></div>`;
+    document.getElementById("closeProfileBtn").onclick=closeMoreSheet;
+    document.getElementById("profileBackdrop").onclick=closeMoreSheet;
+  }
+
+  function wirePersonCard(card, p){
+    const profileBtn = card.querySelector('[data-act="view-profile"]');
+    if (profileBtn) profileBtn.onclick = () => openPersonProfile(p);
+    const detailsBtn = card.querySelector('[data-act="toggle-person-details"]');
+    if (detailsBtn) detailsBtn.onclick = () => {
+      const details = card.querySelector('[data-role="person-details"]');
+      const expanded = details.style.display !== "none";
+      details.style.display = expanded ? "none" : "block";
+      detailsBtn.textContent = expanded ? "Ver detalle⌄" : "Ocultar detalle⌃";
+      detailsBtn.setAttribute("aria-expanded", expanded ? "false" : "true");
+    };
+    card.querySelector('[data-act="toggle-sit-form"]').onclick = () => {
+      const form = card.querySelector('[data-role="sit-form"]');
+      form.style.display = form.style.display === "none" ? "block" : "none";
+    };
+    card.querySelector('[data-act="toggle-edit-person"]').onclick = () => {
+      const form = card.querySelector('[data-role="person-edit-form"]');
+      form.style.display = form.style.display === "none" ? "flex" : "none";
+    };
+    card.querySelector('[data-act="cancel-edit-person"]').onclick = () => {
+      card.querySelector('[data-role="person-edit-form"]').style.display = "none";
+    };
+    card.querySelector('[data-role="edit-married"]').onchange = (e) => {
+      card.querySelector('[data-role="married-fields"]').style.display = e.target.checked ? "flex" : "none";
+    };
+    card.querySelector('[data-role="edit-union-free"]').onchange = (e) => {
+      card.querySelector('[data-role="union-fields"]').style.display = e.target.checked ? "flex" : "none";
+    };
+    card.querySelector('[data-role="edit-union-current"]').onchange = (e) => {
+      const to = card.querySelector('[data-role="edit-union-to"]');
+      if (e.target.checked) to.value = "";
+      to.disabled = e.target.checked;
+    };
+    card.querySelector('[data-role="edit-union-current"]').dispatchEvent(new Event('change'));
+    card.querySelector('[data-role="edit-has-children"]').onchange = (e) => {
+      card.querySelector('[data-role="children-fields"]').style.display = e.target.checked ? "flex" : "none";
+    };
+    card.querySelector('[data-act="save-person-name"]').onclick = async () => {
+      const input = card.querySelector('[data-role="person-name-input"]');
+      const name = input.value.trim();
+      if (!name) { input.focus(); return; }
+      const phone = card.querySelector('[data-role="edit-phone"]').value.trim();
+      const birthday = card.querySelector('[data-role="edit-birthday"]').value || null;
+      const married = card.querySelector('[data-role="edit-married"]').checked;
+      const spouseName = card.querySelector('[data-role="edit-spouse"]').value.trim();
+      const marriageDate = card.querySelector('[data-role="edit-marriage-date"]').value || null;
+      const marriageYearsRaw = card.querySelector('[data-role="edit-marriage-years"]').value;
+      const manualMarriageYears = marriageYearsRaw === "" ? null : Number(marriageYearsRaw);
+      const marriageYears = marriageDate ? marriageDurationYears(marriageDate) : manualMarriageYears;
+      const hasChildren = card.querySelector('[data-role="edit-has-children"]').checked;
+      const childrenCountRaw = card.querySelector('[data-role="edit-children-count"]').value;
+      const childrenCount = childrenCountRaw === "" ? null : Number(childrenCountRaw);
+      const joinDate = card.querySelector('[data-role="edit-join-date"]').value || null;
+      const retreatValue = card.querySelector('[data-role="edit-retreat-attended"]').value;
+      const retreatAttended = retreatValue === "" ? null : retreatValue === "true";
+      const memberType = card.querySelector('[data-role="edit-member-type"]').value || null;
+      const sex = card.querySelector('[data-role="edit-sex"]').value || null;
+      const unionFree = card.querySelector('[data-role="edit-union-free"]').checked;
+      const partnerName = card.querySelector('[data-role="edit-partner"]').value.trim();
+      const unionFrom = card.querySelector('[data-role="edit-union-from"]').value || null;
+      const unionCurrent = card.querySelector('[data-role="edit-union-current"]').checked;
+      const unionTo = unionCurrent ? null : (card.querySelector('[data-role="edit-union-to"]').value || null);
+      setStatus("Guardando cambios…");
+      try {
+        await db.doc("groups/" + currentGroupId + "/people/" + p.id).update({
+          name,
+          phone: phone || null,
+          birthday,
+          married,
+          spouseName: married ? spouseName : null,
+          marriageDate: married ? marriageDate : null,
+          marriageYears: married ? marriageYears : null,
+          hasChildren,
+          childrenCount: hasChildren ? childrenCount : null,
+          joinDate,
+          retreatAttended,
+          memberType,
+          sex,
+          unionFree,
+          partnerName: unionFree ? (partnerName || null) : null,
+          unionFrom: unionFree ? unionFrom : null,
+          unionTo: unionFree ? unionTo : null,
+          unionCurrent: unionFree ? unionCurrent : false
+        });
+        card.querySelector('[data-role="person-edit-form"]').style.display = "none";
+        setStatus("");
+      } catch(e){ setStatus("Error: " + e.code); }
+    };
+    const deactivateBtn = card.querySelector('[data-act="deactivate"]');
+    deactivateBtn.onclick = async () => {
+      if (deactivateBtn.dataset.confirming !== "1"){
+        deactivateBtn.dataset.confirming = "1";
+        deactivateBtn.textContent = "¿Seguro? Toca de nuevo";
+        setTimeout(() => { deactivateBtn.dataset.confirming = "0"; deactivateBtn.textContent = "Inactivar"; }, 4000);
+        return;
+      }
+      try {
+        const now= todayISO();
+        const history=Array.isArray(p.deactivationHistory)?p.deactivationHistory.slice():[];
+        history.push({date:now});
+        await db.doc("groups/" + currentGroupId + "/people/" + p.id).update({ active:false, deactivatedAt:now, deactivationHistory:history });
+        setStatus("Miembro inactivado y fecha guardada.");
+      } catch(e){ setStatus("Error: " + e.code); }
+    };
+    const deleteBtn = card.querySelector('[data-act="delete-person"]');
+    deleteBtn.onclick = async () => {
+      if (deleteBtn.dataset.confirming !== "1"){
+        deleteBtn.dataset.confirming = "1";
+        deleteBtn.textContent = "¿Eliminar todo? Toca de nuevo";
+        setTimeout(() => { deleteBtn.dataset.confirming = "0"; deleteBtn.textContent = "Eliminar"; }, 4000);
+        return;
+      }
+      setStatus("Eliminando persona…");
+      try {
+        const sitsSnap = await db.collection("groups/" + currentGroupId + "/people/" + p.id + "/situations").get();
+        for (const d of sitsSnap.docs){
+          await db.doc("groups/" + currentGroupId + "/people/" + p.id + "/situations/" + d.id).delete();
+        }
+        await db.doc("groups/" + currentGroupId + "/people/" + p.id).delete();
+        setStatus("Persona eliminada.");
+      } catch(e){ setStatus("Error: " + e.code); }
+    };
+    card.querySelector('[data-act="save-sit"]').onclick = async () => {
+      const desc = card.querySelector('[data-role="sit-desc"]').value.trim();
+      const date = card.querySelector('[data-role="sit-date"]').value || todayISO();
+      const status = card.querySelector('[data-role="sit-status"]').value;
+      const category = card.querySelector('[data-role="sit-category"]').value || "otra";
+      if (!desc){ setStatus("Escribe una descripción de la situación."); return; }
+      setStatus("Guardando situación…");
+      try {
+        await db.collection("groups/" + currentGroupId + "/people/" + p.id + "/situations").add({
+          description: desc, status, startDate: date, category, notes: [], createdAt: Date.now()
+        });
+        card.querySelector('[data-role="sit-desc"]').value = "";
+        card.querySelector('[data-role="sit-form"]').style.display = "none";
+        setStatus("");
+        loadSituations(p.id);
+      } catch(e){ setStatus("Error: " + e.code); }
+    };
+  }
+
+  async function loadSituations(personId){
+    try {
+      const snap = await db.collection("groups/" + currentGroupId + "/people/" + personId + "/situations").orderBy("createdAt","desc").get();
+      situationsCache[personId] = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    } catch(e){
+      situationsCache[personId] = [];
+    }
+    if (activeTab === "personas") renderSituationsBlock(personId);
+  }
+
+  function renderSituationsBlock(personId){
+    const block = document.querySelector(`[data-role="situations"][data-person="${personId}"]`) ||
+                  Array.from(document.querySelectorAll('[data-role="situations"]')).find(b => b.closest(".card") && b.dataset.person === personId);
+    // Find the container by matching person id stored as dataset when rendering initial card; simpler: re-render whole list
+    renderPersonasSituationsOnly();
+  }
+
+  function renderPersonasSituationsOnly(){
+    // Re-render each person's situations block in place without rebuilding the whole tab (avoids losing form open state mostly)
+    document.querySelectorAll("#peopleList > .card").forEach((card, idx) => {
+      const activos = people.filter(p => p.active !== false);
+      const p = activos[idx];
+      if (!p) return;
+      const container = card.querySelector('[data-role="situations"]');
+      const sits = situationsCache[p.id];
+      if (sits === undefined){ container.innerHTML = '<div style="color:var(--text-dim); font-size:13px;">Cargando situaciones…</div>'; return; }
+      if (!sits.length){ container.innerHTML = '<div style="color:var(--text-dim); font-size:13px;">Sin situaciones registradas.</div>'; return; }
+      const importantes = sits.filter(s => s.category === "importante");
+      const otras = sits.filter(s => s.category !== "importante");
+      let html = "";
+      if (importantes.length){
+        html += '<div style="font-size:12px; font-weight:700; color:var(--accent); margin-top:4px;">Temas importantes</div>';
+        html += importantes.map(s => situationHTML(p.id, s)).join("");
+      }
+      if (otras.length){
+        html += '<div style="font-size:12px; font-weight:700; color:var(--text-dim); margin-top:4px;">Otras luchas o situaciones</div>';
+        html += otras.map(s => situationHTML(p.id, s)).join("");
+      }
+      container.innerHTML = html;
+      sits.forEach(s => wireSituation(container, p.id, s));
+    });
+  }
+
+  function situationHTML(personId, s){
+    const notes = (s.notes || []).slice().sort((a,b) => (a.date < b.date ? 1 : -1));
+    const isImportant = s.category === "importante";
+    return `
+      <div class="card" style="padding:10px; background:var(--surface-2); border:1px solid var(--border);" data-sit="${s.id}">
+        <div data-role="sit-view">
+          <div style="display:flex; justify-content:space-between; gap:8px; align-items:flex-start;">
+            <div style="font-weight:600;">${esc(s.description)}</div>
+            <div style="display:flex; gap:4px; flex-shrink:0; flex-wrap:wrap; justify-content:flex-end;">
+              ${isImportant ? '<span class="pill" style="background:var(--warn-bg); color:var(--warn);">Importante</span>' : ""}
+              <span class="pill ${s.status==='superada'?'pill-superada':'pill-proceso'}">${s.status==='superada'?'Superada':'En proceso'}</span>
+            </div>
+          </div>
+          <div style="font-size:12px; color:var(--text-dim); margin-top:2px;">Desde ${esc(s.startDate || "—")}</div>
+          <div style="margin-top:8px; display:flex; gap:6px; flex-wrap:wrap;">
+            <button class="btn-ghost" style="padding:4px 10px; font-size:12px;" data-act="toggle-status">
+              ${s.status==='superada' ? 'Marcar en proceso' : 'Marcar superada'}
+            </button>
+            <button class="btn-ghost" style="padding:4px 10px; font-size:12px;" data-act="toggle-note-form">+ Anotación semanal</button>
+            <button class="btn-ghost" style="padding:4px 10px; font-size:12px;" data-act="toggle-edit-sit">Editar</button>
+            <button class="btn-danger" style="padding:4px 10px; font-size:12px;" data-act="delete-sit">Eliminar</button>
+          </div>
+        </div>
+        <div data-role="sit-edit-form" style="display:none; margin-top:8px; flex-direction:column; gap:6px; padding-top:8px; border-top:1px solid var(--border);">
+          <input data-role="edit-desc" value="${esc(s.description)}" placeholder="Situación con la que lucha" />
+          <div>
+            <label style="font-size:12px; color:var(--text-dim);">Tipo</label>
+            <select data-role="edit-category">
+              <option value="importante" ${isImportant ? "selected" : ""}>Tema importante (siempre sale en el informe)</option>
+              <option value="otra" ${!isImportant ? "selected" : ""}>Otra lucha o situación</option>
+            </select>
+          </div>
+          <div style="display:flex; gap:6px;">
+            <input type="date" data-role="edit-date" value="${esc(s.startDate || todayISO())}" style="flex:1;" />
+            <select data-role="edit-status" style="flex:1;">
+              <option value="proceso" ${s.status!=='superada'?'selected':''}>En proceso</option>
+              <option value="superada" ${s.status==='superada'?'selected':''}>Superada</option>
+            </select>
+          </div>
+          <div style="display:flex; gap:6px;">
+            <button class="btn" data-act="save-edit-sit">Guardar cambios</button>
+            <button class="btn-ghost" data-act="cancel-edit-sit">Cancelar</button>
+          </div>
+        </div>
+        <div data-role="note-form" style="display:none; margin-top:8px; flex-direction:column; gap:6px;">
+          <input type="date" data-role="note-date" value="${todayISO()}" />
+          <textarea data-role="note-text" rows="2" placeholder="Anotación de esta semana…"></textarea>
+          <button class="btn" style="align-self:flex-start;" data-act="save-note">Guardar anotación</button>
+        </div>
+        ${notes.length ? `
+          <div style="margin-top:8px; border-top:1px solid var(--border); padding-top:8px; display:flex; flex-direction:column; gap:6px;">
+            ${notes.map((n,i) => `
+              <div data-note-idx="${i}">
+                <div data-role="note-view" style="display:flex; justify-content:space-between; align-items:flex-start; gap:6px; font-size:13px;">
+                  <div><span style="color:var(--text-dim);">${esc(n.date)}:</span> ${esc(n.text)}</div>
+                  <div style="display:flex; gap:4px; flex-shrink:0;">
+                    <button data-act="edit-note" style="border:none; background:none; color:var(--accent); cursor:pointer; font-size:12px;">Editar</button>
+                    <button data-act="delete-note" style="border:none; background:none; color:#b3453a; cursor:pointer; font-size:12px;">Eliminar</button>
+                  </div>
+                </div>
+                <div data-role="note-edit-form" style="display:none; margin-top:4px; flex-direction:column; gap:4px;">
+                  <input type="date" data-role="note-edit-date" value="${esc(n.date)}" />
+                  <textarea data-role="note-edit-text" rows="2">${esc(n.text)}</textarea>
+                  <div style="display:flex; gap:6px;">
+                    <button class="btn" style="padding:4px 10px; font-size:12px;" data-act="save-note-edit">Guardar</button>
+                    <button class="btn-ghost" style="padding:4px 10px; font-size:12px;" data-act="cancel-note-edit">Cancelar</button>
+                  </div>
+                </div>
+              </div>
+            `).join("")}
+          </div>` : ""}
+      </div>
+    `;
+  }
+
+  function noteMatchIndex(arr, note){
+    return arr.findIndex(n => n.date === note.date && n.text === note.text);
+  }
+
+  function wireSituation(container, personId, s){
+    const box = container.querySelector(`[data-sit="${s.id}"]`);
+    if (!box) return;
+    const sitRef = db.doc("groups/" + currentGroupId + "/people/" + personId + "/situations/" + s.id);
+
+    box.querySelector('[data-act="toggle-status"]').onclick = async () => {
+      const newStatus = s.status === "superada" ? "proceso" : "superada";
+      try { await sitRef.update({ status: newStatus }); loadSituations(personId); }
+      catch(e){ setStatus("Error: " + e.code); }
+    };
+
+    const noteForm = box.querySelector('[data-role="note-form"]');
+    box.querySelector('[data-act="toggle-note-form"]').onclick = () => {
+      noteForm.style.display = noteForm.style.display === "none" ? "flex" : "none";
+    };
+    box.querySelector('[data-act="save-note"]').onclick = async () => {
+      const date = box.querySelector('[data-role="note-date"]').value || todayISO();
+      const text = box.querySelector('[data-role="note-text"]').value.trim();
+      if (!text) return;
+      setStatus("Guardando anotación…");
+      try {
+        const fresh = await sitRef.get();
+        const currentNotes = (fresh.exists && fresh.data().notes) ? fresh.data().notes : [];
+        await sitRef.update({ notes: currentNotes.concat([{ date, text }]) });
+        setStatus("");
+        loadSituations(personId);
+      } catch(e){ setStatus("Error: " + e.code); }
+    };
+
+    const editForm = box.querySelector('[data-role="sit-edit-form"]');
+    box.querySelector('[data-act="toggle-edit-sit"]').onclick = () => {
+      editForm.style.display = editForm.style.display === "none" ? "flex" : "none";
+    };
+    box.querySelector('[data-act="cancel-edit-sit"]').onclick = () => {
+      editForm.style.display = "none";
+    };
+    box.querySelector('[data-act="save-edit-sit"]').onclick = async () => {
+      const desc = box.querySelector('[data-role="edit-desc"]').value.trim();
+      const date = box.querySelector('[data-role="edit-date"]').value || s.startDate || todayISO();
+      const status = box.querySelector('[data-role="edit-status"]').value;
+      const category = box.querySelector('[data-role="edit-category"]').value || "otra";
+      if (!desc){ setStatus("Escribe una descripción de la situación."); return; }
+      setStatus("Guardando cambios…");
+      try {
+        await sitRef.update({ description: desc, startDate: date, status, category });
+        editForm.style.display = "none";
+        setStatus("");
+        loadSituations(personId);
+      } catch(e){ setStatus("Error: " + e.code); }
+    };
+
+    const deleteSitBtn = box.querySelector('[data-act="delete-sit"]');
+    deleteSitBtn.onclick = async () => {
+      if (deleteSitBtn.dataset.confirming !== "1"){
+        deleteSitBtn.dataset.confirming = "1";
+        deleteSitBtn.textContent = "¿Seguro? Toca de nuevo";
+        setTimeout(() => { deleteSitBtn.dataset.confirming = "0"; deleteSitBtn.textContent = "Eliminar"; }, 4000);
+        return;
+      }
+      setStatus("Eliminando situación…");
+      try { await sitRef.delete(); loadSituations(personId); }
+      catch(e){ setStatus("Error: " + e.code); }
+    };
+
+    const notesSorted = (s.notes || []).slice().sort((a,b) => (a.date < b.date ? 1 : -1));
+    box.querySelectorAll('[data-note-idx]').forEach(noteEl => {
+      const idx = Number(noteEl.dataset.noteIdx);
+      const note = notesSorted[idx];
+      if (!note) return;
+      const noteEditForm = noteEl.querySelector('[data-role="note-edit-form"]');
+      noteEl.querySelector('[data-act="edit-note"]').onclick = () => {
+        noteEditForm.style.display = noteEditForm.style.display === "none" ? "flex" : "none";
+      };
+      noteEl.querySelector('[data-act="cancel-note-edit"]').onclick = () => {
+        noteEditForm.style.display = "none";
+      };
+      noteEl.querySelector('[data-act="save-note-edit"]').onclick = async () => {
+        const newDate = noteEl.querySelector('[data-role="note-edit-date"]').value || note.date;
+        const newText = noteEl.querySelector('[data-role="note-edit-text"]').value.trim();
+        if (!newText) return;
+        setStatus("Guardando anotación…");
+        try {
+          const fresh = await sitRef.get();
+          const currentNotes = (fresh.exists && fresh.data().notes) ? fresh.data().notes.slice() : [];
+          const i = noteMatchIndex(currentNotes, note);
+          if (i >= 0) currentNotes[i] = { date: newDate, text: newText };
+          await sitRef.update({ notes: currentNotes });
+          setStatus("");
+          loadSituations(personId);
+        } catch(e){ setStatus("Error: " + e.code); }
+      };
+      noteEl.querySelector('[data-act="delete-note"]').onclick = async () => {
+        setStatus("Eliminando anotación…");
+        try {
+          const fresh = await sitRef.get();
+          const currentNotes = (fresh.exists && fresh.data().notes) ? fresh.data().notes.slice() : [];
+          const i = noteMatchIndex(currentNotes, note);
+          if (i >= 0) currentNotes.splice(i, 1);
+          await sitRef.update({ notes: currentNotes });
+          setStatus("");
+          loadSituations(personId);
+        } catch(e){ setStatus("Error: " + e.code); }
+      };
+    });
+  }
+
+  // ============================================================
+  // TAB: ASISTENCIA
+  // ============================================================
+  let attendanceDate = todayISO();
+  let attendanceState = {}; // personId -> bool
+
+  function renderAsistencia(){
+    const el = document.getElementById("content");
+    const activos = people.filter(p => p.active !== false);
+    el.innerHTML = `
+      <div class="card" style="padding:14px; margin-bottom:14px;">
+        <div style="display:flex; gap:8px; align-items:flex-end;">
+          <div style="flex:1;">
+            <label style="font-size:12px; color:var(--text-dim);">Fecha de la reunión</label>
+            <input type="date" id="attDate" value="${attendanceDate}" />
+          </div>
+          <button class="btn-ghost" id="loadAttBtn">Cargar</button>
+        </div>
+        <div id="attList" style="margin-top:14px; display:flex; flex-direction:column; gap:6px;"></div>
+        <div id="attGuestInfo" style="margin-top:12px;padding:9px 10px;background:var(--surface-2);border-radius:10px;"></div>
+        <div style="display:flex; gap:8px; margin-top:12px;">
+          <button class="btn" id="saveAttBtn">Guardar asistencia</button>
+          <button class="btn-danger" id="deleteAttBtn">Eliminar este registro</button>
+        </div>
+      </div>
+      <div class="card" style="padding:14px;">
+        <div style="font-weight:700; margin-bottom:8px;">Historial reciente (toca una fecha para editarla)</div>
+        <div id="attHistory" style="font-size:13px; color:var(--text-dim);">Cargando…</div>
+      </div>
+    `;
+    if (!activos.length){
+      document.getElementById("attList").innerHTML = '<div style="color:var(--text-dim); font-size:13px;">Agrega personas en la pestaña "Personas" primero.</div>';
+    } else {
+      renderAttList(activos, {});
+    }
+    document.getElementById("attDate").onchange = (e) => { attendanceDate = e.target.value; };
+    document.getElementById("loadAttBtn").onclick = () => loadAttendanceForDate(activos);
+    document.getElementById("saveAttBtn").onclick = () => saveAttendance(activos);
+    const deleteAttBtn = document.getElementById("deleteAttBtn");
+    deleteAttBtn.onclick = async () => {
+      if (deleteAttBtn.dataset.confirming !== "1"){
+        deleteAttBtn.dataset.confirming = "1";
+        deleteAttBtn.textContent = "¿Seguro? Toca de nuevo";
+        setTimeout(() => { deleteAttBtn.dataset.confirming = "0"; deleteAttBtn.textContent = "Eliminar este registro"; }, 4000);
+        return;
+      }
+      const dateVal = document.getElementById("attDate").value || todayISO();
+      setStatus("Eliminando registro…");
+      try {
+        await db.doc("groups/" + currentGroupId + "/attendance/" + dateVal).delete();
+        renderAttList(activos, {});
+        setStatus("Registro eliminado.");
+        loadAttendanceHistory();
+      } catch(e){ setStatus("Error: " + e.code); }
+      deleteAttBtn.dataset.confirming = "0";
+      deleteAttBtn.textContent = "Eliminar este registro";
+    };
+    loadAttendanceForDate(activos);
+    loadAttendanceHistory();
+  }
+
+  function renderAttList(activos, presentMap){
+    attendanceState = Object.assign({}, presentMap);
+    document.getElementById("attList").innerHTML = activos.map(p => `
+      <label style="display:flex; align-items:center; gap:8px; padding:6px 4px;">
+        <input type="checkbox" data-person="${p.id}" ${attendanceState[p.id] ? "checked" : ""} style="width:18px; height:18px;" />
+        <span>${esc(p.name)}</span>
+      </label>
+    `).join("");
+    document.querySelectorAll('#attList input[type="checkbox"]').forEach(cb => {
+      cb.onchange = () => { attendanceState[cb.dataset.person] = cb.checked; };
+    });
+  }
+
+  async function loadAttendanceForDate(activos){
+    attendanceDate = document.getElementById("attDate").value || todayISO();
+    setStatus("Cargando asistencia…");
+    try {
+      const ref = db.doc("groups/" + currentGroupId + "/attendance/" + attendanceDate);
+      const snap = await ref.get();
+      const present = (snap.exists && snap.data().present) ? snap.data().present : {};
+      const savedGuests = (snap.exists && Array.isArray(snap.data().guests)) ? snap.data().guests : [];
+      const mSnap = await db.doc("groups/" + currentGroupId + "/meetings/" + attendanceDate).get();
+      const meetingGuests = mSnap.exists ? legacyGuestsFromMeeting(mSnap.data()).filter(g=>g.name) : [];
+      const guests = savedGuests.length ? savedGuests : meetingGuests;
+      renderAttList(activos, present);
+      const guestInfo=document.getElementById("attGuestInfo");
+      if(guestInfo) guestInfo.innerHTML=guests.length ? `<div style="font-size:12px;color:var(--text-dim);">Invitados contabilizados en la participación: <strong>${guests.length}</strong> · ${esc(guests.map(g=>g.name).join(", "))}</div>` : '<div style="font-size:12px;color:var(--text-dim);">Sin invitados registrados para esta reunión.</div>';
+      setStatus("");
+    } catch(e){ setStatus("Error: " + e.code); }
+  }
+
+  async function saveAttendance(activos){
+    attendanceDate = document.getElementById("attDate").value || todayISO();
+    setStatus("Guardando asistencia…");
+    try {
+      // Guardamos explícitamente a todos los miembros activos para que cada registro
+      // tenga un denominador consistente y no se interpreten los ausentes como
+      // "miembros no registrados".
+      const completePresentMap = {};
+      activos.forEach(p => { completePresentMap[p.id] = attendanceState[p.id] === true; });
+      const meetingSnap=await db.doc("groups/"+currentGroupId+"/meetings/"+attendanceDate).get();
+      const meetingGuests=meetingSnap.exists ? legacyGuestsFromMeeting(meetingSnap.data()).filter(g=>g.name) : [];
+      await db.doc("groups/" + currentGroupId + "/attendance/" + attendanceDate).set({
+        date: attendanceDate, present: completePresentMap, guests: meetingGuests, updatedAt: Date.now()
+      });
+      // Guardamos también en cada ficha la primera y última fecha en que asistió,
+      // sin eliminar el historial de asistencias de la colección attendance.
+      for (const p of activos) {
+        if (completePresentMap[p.id] !== true) continue;
+        const first = p.firstAttendanceDate ? (attendanceDate < p.firstAttendanceDate ? attendanceDate : p.firstAttendanceDate) : attendanceDate;
+        const last = p.lastAttendanceDate ? (attendanceDate > p.lastAttendanceDate ? attendanceDate : p.lastAttendanceDate) : attendanceDate;
+        await db.doc("groups/" + currentGroupId + "/people/" + p.id).update({ firstAttendanceDate:first, lastAttendanceDate:last });
+      }
+      await loadPersonAttendanceStats();
+      setStatus("Asistencia guardada.");
+      loadAttendanceHistory();
+    } catch(e){ setStatus("Error: " + e.code); }
+  }
+
+  async function loadAttendanceHistory(){
+    try {
+      const snap = await db.collection("groups/" + currentGroupId + "/attendance").orderBy("date","desc").limit(8).get();
+      attendanceHistory = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      const box = document.getElementById("attHistory");
+      if (!box) return;
+      if (!attendanceHistory.length){ box.textContent = "Sin registros de asistencia todavía."; return; }
+      const activosActuales = people.filter(p => p.active !== false);
+      box.innerHTML = attendanceHistory.map(a => {
+        const presentMap = a.present || {};
+        // En registros antiguos puede que solo se hayan guardado los presentes.
+        // El total debe ser el número de miembros activos, no la cantidad de claves.
+        const total = activosActuales.length;
+        const presentes = activosActuales.filter(p => presentMap[p.id] === true).length;
+        const guestCount=Array.isArray(a.guests)?a.guests.length:0;
+        const totalParticipantes=total+guestCount;
+        const pct = totalParticipantes ? Math.round(((presentes+guestCount)/totalParticipantes)*100) : 0;
+        return `<div data-hist-date="${esc(a.date)}" style="display:flex; justify-content:space-between; align-items:center; gap:8px; padding:6px 2px; border-bottom:1px solid var(--border);">
+          <div>
+            <div>${esc(a.date)}</div>
+            <div style="color:var(--text-dim);">${presentes+guestCount}/${totalParticipantes} participantes · ${pct}%${guestCount?" · "+guestCount+" invitados":""}</div>
+          </div>
+          <div style="display:flex; gap:6px; flex-shrink:0;">
+            <button class="btn-ghost" data-act="hist-edit" style="padding:4px 10px; font-size:12px;">Editar</button>
+            <button class="btn-danger" data-act="hist-delete" style="padding:4px 10px; font-size:12px;">Eliminar</button>
+          </div>
+        </div>`;
+      }).join("");
+      box.querySelectorAll("[data-hist-date]").forEach(row => {
+        const dateVal = row.dataset.histDate;
+        row.querySelector('[data-act="hist-edit"]').onclick = () => {
+          attendanceDate = dateVal;
+          const dateInput = document.getElementById("attDate");
+          if (dateInput) dateInput.value = attendanceDate;
+          const activos = people.filter(p => p.active !== false);
+          loadAttendanceForDate(activos);
+          setStatus("Editando la asistencia del " + dateVal + ". Cambia lo necesario y toca \"Guardar asistencia\".");
+        };
+        const delBtn = row.querySelector('[data-act="hist-delete"]');
+        delBtn.onclick = async () => {
+          if (delBtn.dataset.confirming !== "1"){
+            delBtn.dataset.confirming = "1";
+            delBtn.textContent = "¿Seguro?";
+            setTimeout(() => { delBtn.dataset.confirming = "0"; delBtn.textContent = "Eliminar"; }, 4000);
+            return;
+          }
+          setStatus("Eliminando registro…");
+          try {
+            await db.doc("groups/" + currentGroupId + "/attendance/" + dateVal).delete();
+            setStatus("Registro eliminado.");
+            loadAttendanceHistory();
+          } catch(e){ setStatus("Error: " + e.code); }
+        };
+      });
+    } catch(e){ /* ignore */ }
+  }
+
+  // ============================================================
+  // TAB: CUMPLEAÑOS
+  // ============================================================
+  function renderCumpleanos(){
+    const el = document.getElementById("content");
+    const activos = people.filter(p => p.active !== false);
+    if (!activos.length){
+      el.innerHTML = '<div class="card" style="padding:16px;">Agrega personas en la pestaña "Personas" primero.</div>';
+      return;
+    }
+    const byMonth = {};
+    activos.forEach(p => {
+      const parts = birthdayParts(p.birthday);
+      if (!parts) return;
+      if (!byMonth[parts.month]) byMonth[parts.month] = [];
+      byMonth[parts.month].push({ name: p.name, day: parts.day, phone: p.phone });
+    });
+    Object.values(byMonth).forEach(arr => arr.sort((a,b) => a.day - b.day));
+    const currentMonth = new Date().getMonth();
+    const anySet = activos.some(p => p.birthday);
+
+    let html = '<div style="display:flex; flex-direction:column; gap:10px;">';
+    if (!anySet){
+      html += '<div class="card" style="padding:14px; color:var(--text-dim); font-size:13px;">Todavía no has registrado fechas de cumpleaños. Edita a cada persona en la pestaña "Personas" para agregarla.</div>';
+    }
+    for (let m = 0; m < 12; m++){
+      const list = byMonth[m] || [];
+      const isCurrent = m === currentMonth;
+      html += `<div class="card" style="padding:12px; ${isCurrent ? "border:1px solid var(--accent);" : ""}">
+        <div style="font-weight:700; ${isCurrent ? "color:var(--accent);" : ""}">${MONTH_NAMES[m]}${isCurrent ? " · mes actual" : ""}</div>
+        ${list.length ? list.map(x => `
+          <div style="display:flex; justify-content:space-between; padding:5px 0; border-top:1px solid var(--border); margin-top:6px; font-size:14px;">
+            <span>${esc(x.name)}</span>
+            <span style="color:var(--text-dim);">Día ${x.day}${x.phone ? " · " + esc(x.phone) : ""}</span>
+          </div>
+        `).join("") : '<div style="color:var(--text-dim); font-size:13px; margin-top:6px;">Sin cumpleaños este mes.</div>'}
+      </div>`;
+    }
+    html += "</div>";
+    el.innerHTML = html;
+  }
+
+  // ============================================================
+  // TAB: REUNIONES
+  // ============================================================
+  let meetingDate = todayISO();
+  let meetingFilter = "all";
+  let meetingSearch = "";
+
+  function renderReuniones(){
+    const el = document.getElementById("content");
+    el.innerHTML = `
+      <div class="card" style="padding:14px; margin-bottom:14px;">
+        <div style="display:flex; gap:8px; align-items:flex-end;">
+          <div style="flex:1;">
+            <label style="font-size:12px; color:var(--text-dim);">Fecha de la reunión</label>
+            <input type="date" id="meetingDate" value="${meetingDate}" />
+          </div>
+          <button class="btn-ghost" id="loadMeetingBtn">Cargar</button>
+        </div>
+        <div style="margin-top:12px; display:grid; gap:8px;">
+          <div><label style="font-size:12px; color:var(--text-dim);">🏠 Anfitrión</label><select id="meetingHost"></select></div>
+          <div><label style="font-size:12px; color:var(--text-dim);">🍽️ Persona que da el compartir</label><select id="meetingShare"></select><div style="font-size:11px;color:var(--text-dim);margin-top:4px;">También puedes seleccionar “De traje”.</div></div>
+          <label style="display:flex; align-items:center; gap:6px; font-size:13px;"><input type="checkbox" id="meetingNewGuests" style="width:auto;" /> ¿Hubo invitados nuevos?</label>
+          <div id="meetingGuestsFields" style="display:none;">
+            <div style="font-size:12px;color:var(--text-dim);">Cada invitado se registra en su propio campo. La decisión <strong>Continúa</strong> o <strong>No continuó</strong> se gestiona desde el listado de Personas → Invitados.</div>
+            <div id="meetingGuestsList"></div>
+            <button type="button" class="btn-ghost" id="addMeetingGuestBtn" style="margin-top:8px;">＋ Agregar otro invitado</button>
+          </div>
+          <div><label style="font-size:12px; color:var(--text-dim);">Temas, asuntos y observaciones de esta reunión</label><textarea id="meetingNotes" rows="6" placeholder="Escribe aquí lo tratado en la reunión…"></textarea></div>
+        </div>
+        <div style="display:flex; gap:8px; margin-top:12px;">
+          <button class="btn" id="saveMeetingBtn">Guardar</button>
+          <button class="btn-danger" id="deleteMeetingBtn">Eliminar este registro</button>
+        </div>
+      </div>
+      <div class="card" style="padding:14px;">
+        <div style="font-weight:800; margin-bottom:9px;">Historial de reuniones</div>
+        <div style="display:flex;gap:8px;margin-bottom:10px;">
+          <input id="meetingSearch" placeholder="🔎 Buscar por fecha, anfitrión o compartir…" />
+          <select id="meetingFilter" style="max-width:145px;"><option value="all">Todas</option><option value="registered">Registradas</option><option value="pending">Pendientes</option></select>
+        </div>
+        <div id="meetingHistory" style="font-size:13px; color:var(--text-dim);">Cargando…</div>
+      </div>
+    `;
+    populateMeetingPeopleSelects();
+    document.getElementById("meetingNewGuests").onchange = (e) => {
+      document.getElementById("meetingGuestsFields").style.display = e.target.checked ? "block" : "none";
+      if(e.target.checked && !meetingGuestRows.length) guestRowsToUI([{name:"",status:""}]);
+    };
+    document.getElementById("addMeetingGuestBtn").onclick = () => { meetingGuestRows.push({id:"row-"+Date.now(),name:"",status:""}); guestRowsToUI(meetingGuestRows); const rows=document.querySelectorAll("[data-guest-row]"); const last=rows[rows.length-1]; if(last) last.querySelector("[data-guest-name]").focus(); };
+    document.getElementById("meetingDate").onchange = (e) => { meetingDate = e.target.value; };
+    document.getElementById("loadMeetingBtn").onclick = loadMeetingForDate;
+    document.getElementById("saveMeetingBtn").onclick = saveMeeting;
+    const deleteBtn = document.getElementById("deleteMeetingBtn");
+    deleteBtn.onclick = async () => {
+      if (deleteBtn.dataset.confirming !== "1"){
+        deleteBtn.dataset.confirming = "1";
+        deleteBtn.textContent = "¿Seguro? Toca de nuevo";
+        setTimeout(() => { deleteBtn.dataset.confirming = "0"; deleteBtn.textContent = "Eliminar este registro"; }, 4000);
+        return;
+      }
+      const dateVal = document.getElementById("meetingDate").value || todayISO();
+      setStatus("Eliminando registro…");
+      try {
+        await db.doc("groups/" + currentGroupId + "/meetings/" + dateVal).delete();
+        const notesEl = document.getElementById("meetingNotes");
+        if (notesEl) notesEl.value = "";
+        setStatus("Registro eliminado.");
+        loadMeetingHistory();
+      } catch(e){ setStatus("Error: " + e.code); }
+      deleteBtn.dataset.confirming = "0";
+      deleteBtn.textContent = "Eliminar este registro";
+    };
+    document.getElementById("meetingSearch").value=meetingSearch;
+    document.getElementById("meetingFilter").value=meetingFilter;
+    document.getElementById("meetingSearch").oninput=(e)=>{meetingSearch=e.target.value;loadMeetingHistory();};
+    document.getElementById("meetingFilter").onchange=(e)=>{meetingFilter=e.target.value;loadMeetingHistory();};
+    loadMeetingForDate();
+    loadMeetingHistory();
+  }
+
+  function populateMeetingPeopleSelects(hostId, shareId){
+    const active = people.filter(p => p.active !== false);
+    const opts = '<option value="">Seleccionar</option>' + active.map(p => `<option value="${esc(p.id)}">${esc(p.name)}</option>`).join("");
+    const shareOpts = opts + '<option value="__DE_TRAJE__">🍽️ De traje</option>';
+    const host = document.getElementById("meetingHost");
+    const share = document.getElementById("meetingShare");
+    if (host) { host.innerHTML = opts; host.value = hostId || ""; }
+    if (share) { share.innerHTML = shareOpts; share.value = shareId || ""; }
+  }
+
+  async function loadMeetingForDate(){
+    meetingDate = document.getElementById("meetingDate").value || todayISO();
+    setStatus("Cargando…");
+    try {
+      const snap = await db.doc("groups/" + currentGroupId + "/meetings/" + meetingDate).get();
+      const m = snap.exists ? snap.data() : {};
+      const notesEl = document.getElementById("meetingNotes");
+      if (notesEl) notesEl.value = m.notes || "";
+      populateMeetingPeopleSelects(m.hostId || "", m.shareId || "");
+      const guestRows = legacyGuestsFromMeeting(m);
+      meetingGuestRows = guestRows.slice();
+      const newGuests = !!m.newGuests || guestRows.length>0;
+      const cb = document.getElementById("meetingNewGuests");
+      if (cb) cb.checked = newGuests;
+      const gf = document.getElementById("meetingGuestsFields");
+      if (gf) gf.style.display = newGuests ? "block" : "none";
+      if(newGuests) guestRowsToUI(guestRows.length ? guestRows : [{name:"",status:""}]);
+      else { meetingGuestRows=[]; const gl=document.getElementById("meetingGuestsList"); if(gl) gl.innerHTML=""; }
+      setStatus("");
+    } catch(e){ setStatus("Error: " + e.code); }
+  }
+
+  async function saveMeeting(){
+    meetingDate = document.getElementById("meetingDate").value || todayISO();
+    const notes = document.getElementById("meetingNotes").value.trim();
+    const hostId = document.getElementById("meetingHost").value || null;
+    const shareId = document.getElementById("meetingShare").value || null;
+    const newGuests = document.getElementById("meetingNewGuests").checked;
+    const guestRows = newGuests ? meetingGuestRows.map(g=>({id:g.id,name:String(g.name||"").trim(),status:""})).filter(g=>g.name) : [];
+    if(newGuests){
+      if(!guestRows.length){ setStatus("Agrega al menos un invitado."); return; }
+    }
+    if (!hostId && !shareId && !notes && !newGuests){ setStatus("Registra al menos un dato de la reunión antes de guardar."); return; }
+    setStatus("Guardando…");
+    try {
+      const savedGuests=[];
+      for(const g of guestRows){
+        const guestId=await upsertGuestRecord({...g,firstMeetingDate:g.firstMeetingDate||meetingDate},meetingDate);
+        savedGuests.push({...g,id:guestId});
+      }
+      await db.doc("groups/" + currentGroupId + "/meetings/" + meetingDate).set({
+        date: meetingDate, notes, hostId, shareId, newGuests, guests:savedGuests.map(g=>({id:g.id,name:g.name})), guestNames:savedGuests.map(g=>g.name), updatedAt: Date.now()
+      },{merge:true});
+      setStatus("Reunión guardada.");
+      loadMeetingHistory();
+      loadGuestList();
+      // Si hubo nuevos miembros, refresca la lista oficial inmediatamente.
+      if(savedGuests.some(g=>g.status==="continues")) subscribePeople();
+    } catch(e){ setStatus("Error: " + e.code); }
+  }
+
+  async function loadMeetingHistory(){
+    try {
+      const snap = await db.collection("groups/" + currentGroupId + "/meetings").orderBy("date","desc").limit(10).get();
+      let meetings = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      const term=(meetingSearch||"").trim().toLowerCase();
+      meetings=meetings.filter(m=>{
+        const host=people.find(p=>p.id===m.hostId); const share=people.find(p=>p.id===m.shareId);
+        const registered=!!(m.hostId||m.shareId||m.notes||m.newGuests);
+        if(meetingFilter==="registered" && !registered) return false;
+        if(meetingFilter==="pending" && registered) return false;
+        if(!term) return true;
+        return [m.date,host&&host.name,share&&share.name,m.notes].filter(Boolean).join(" ").toLowerCase().includes(term);
+      });
+      const box = document.getElementById("meetingHistory");
+      if (!box) return;
+      if (!meetings.length){ box.textContent = "No hay reuniones que coincidan con el filtro."; return; }
+      box.innerHTML = meetings.map(m => {
+        const preview = (m.notes || "").slice(0, 80) + ((m.notes || "").length > 80 ? "…" : "");
+        const host = people.find(p => p.id === m.hostId);
+        const share = people.find(p => p.id === m.shareId);
+        const guestRows = legacyGuestsFromMeeting(m);
+        const guestText = guestRows.length ? " · Invitados: " + guestRows.map(g=>g.name+" ("+guestStatusLabel(g.status)+")").join(", ") : "";
+        return `<div data-meeting-date="${esc(m.date)}" style="padding:8px 2px; border-bottom:1px solid var(--border);">
+          <div style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
+            <div style="font-weight:600;">${esc(m.date)}</div>
+            <button class="btn-ghost" data-act="meeting-edit" style="padding:4px 10px; font-size:12px;">Editar</button>
+          </div>
+          <div style="color:var(--text-dim); margin-top:2px;">Anfitrión: 🏠 ${esc(host ? host.name : "—")} · Compartir: 🍽️ ${esc(m.shareId === "__DE_TRAJE__" ? "De traje" : (share ? share.name : "—"))}${esc(guestText)}</div>
+          <div style="color:var(--text-dim); margin-top:2px;">${esc(preview)}</div>
+        </div>`;
+      }).join("");
+      box.querySelectorAll("[data-meeting-date]").forEach(row => {
+        row.querySelector('[data-act="meeting-edit"]').onclick = () => {
+          meetingDate = row.dataset.meetingDate;
+          const dateInput = document.getElementById("meetingDate");
+          if (dateInput) dateInput.value = meetingDate;
+          loadMeetingForDate();
+        };
+      });
+    } catch(e){ /* ignore */ }
+  }
+
+  // ============================================================
+  // TAB: PLAN DE REUNIONES
+  // ============================================================
+  // El plan se guarda en: groups/{groupId}/meetingPlan/{YYYY-MM-DD}
+  // y las reuniones realizadas continúan en: groups/{groupId}/meetings/{YYYY-MM-DD}
+  let planRowsCache = [];
+  let planActualRowsCache = [];
+
+  function planDateLabel(iso){
+    if (!iso) return "";
+    const parts = iso.split("-");
+    if (parts.length !== 3) return iso;
+    return parts[2] + "/" + parts[1] + "/" + parts[0];
+  }
+
+  function planWeekdayLabel(day){
+    return String(day) === "2" ? "Martes" : "Miércoles";
+  }
+
+  function nextWeekdayDates(weekday, weeks){
+    const result = [];
+    const d = new Date();
+    d.setHours(12,0,0,0);
+    const jsDay = Number(weekday); // 2 martes, 3 miércoles
+    const diff = (jsDay - d.getDay() + 7) % 7;
+    d.setDate(d.getDate() + diff);
+    for (let i = 0; i < Number(weeks || 12); i++) {
+      result.push(new Date(d));
+      d.setDate(d.getDate() + 7);
+    }
+    return result.map(x => {
+      const y = x.getFullYear();
+      const m = String(x.getMonth()+1).padStart(2,"0");
+      const day = String(x.getDate()).padStart(2,"0");
+      return `${y}-${m}-${day}`;
+    });
+  }
+
+  function personOptions(selected){
+    const active = people.filter(p => p.active !== false).slice().sort((a,b) => (a.name||"").localeCompare(b.name||""));
+    return '<option value="">Seleccionar</option>' + active.map(p =>
+      `<option value="${esc(p.id)}" ${p.id === selected ? "selected" : ""}>${esc(p.name)}</option>`
+    ).join("");
+  }
+
+  function personOptionsWithDeTraje(selected){ return personOptions(selected) + `<option value="__DE_TRAJE__" ${selected === "__DE_TRAJE__" ? "selected" : ""}>🍽️ De traje</option>`; }
+
+  async function renderPlanReuniones(){
+    const el = document.getElementById("content");
+    el.innerHTML = `
+      <div class="card" style="padding:14px; margin-bottom:14px;">
+        <div style="font-weight:700; margin-bottom:6px;">Plan general de reuniones</div>
+        <div style="font-size:13px; color:var(--text-dim); margin-bottom:12px;">
+          Selecciona el día habitual de reunión. El sistema generará automáticamente las fechas futuras y en cada fecha podrás asignar el anfitrión y la persona que dará el compartir.
+        </div>
+        <div style="display:flex; gap:10px; align-items:flex-end; flex-wrap:wrap;">
+          <div style="min-width:180px; flex:1;">
+            <label style="font-size:12px; color:var(--text-dim);">Las reuniones se realizan</label>
+            <select id="planWeekday">
+              <option value="2">Todos los martes</option>
+              <option value="3">Todos los miércoles</option>
+            </select>
+          </div>
+          <div style="min-width:150px;">
+            <label style="font-size:12px; color:var(--text-dim);">Cantidad de semanas</label>
+            <select id="planWeeks">
+              <option value="4">4 semanas</option>
+              <option value="8">8 semanas</option>
+              <option value="12" selected>12 semanas</option>
+              <option value="16">16 semanas</option>
+              <option value="24">24 semanas</option>
+              <option value="52">52 semanas</option>
+            </select>
+          </div>
+          <button class="btn" id="generatePlanBtn">Generar fechas</button>
+        </div>
+      </div>
+
+      <div class="card" style="padding:14px;">
+        <div style="font-weight:700; margin-bottom:8px;">Asignación del plan</div>
+        <div style="font-size:13px; color:var(--text-dim); margin-bottom:10px;">
+          Para cada fecha selecciona quién será el anfitrión y quién dará el compartir.
+        </div>
+        <div id="planList">Cargando…</div>
+        <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:14px;">
+          <button class="btn" id="savePlanBtn">Guardar plan</button>
+          <button class="btn-ghost" id="planExcelBtn">Exportar plan a Excel (2 pestañas)</button>
+        </div>
+      </div>`;
+
+    document.getElementById("generatePlanBtn").onclick = () => renderPlanRows();
+    document.getElementById("savePlanBtn").onclick = savePlanReuniones;
+    document.getElementById("planExcelBtn").onclick = exportPlanExcel;
+    await loadPlanReuniones();
+  }
+
+  async function loadPlanReuniones(){
+    const box = document.getElementById("planList");
+    if (!box) return;
+    box.textContent = "Cargando…";
+    try {
+      const snap = await db.collection("groups/" + currentGroupId + "/meetingPlan").orderBy("date","asc").limit(200).get();
+      const saved = snap.docs.map(d => ({id:d.id, ...d.data()}));
+      const latestWeekday = saved.length && saved[0].weekday ? String(saved[0].weekday) : "2";
+      const latestWeeks = saved.length ? Math.min(52, Math.max(4, saved.length)) : 12;
+      const weekdayEl = document.getElementById("planWeekday");
+      const weeksEl = document.getElementById("planWeeks");
+      if (weekdayEl) weekdayEl.value = latestWeekday;
+      if (weeksEl) weeksEl.value = String([4,8,12,16,24,52].includes(latestWeeks) ? latestWeeks : 12);
+      if (saved.length) {
+        planRowsCache = saved.map(x => ({date:x.date || x.id, weekday:String(x.weekday||latestWeekday), hostId:x.hostId||"", shareId:x.shareId||""}));
+        renderPlanRows(true);
+      } else {
+        renderPlanRows(false);
+      }
+    } catch(e){
+      // Si todavía no existe la subcolección, mostramos el formulario vacío.
+      planRowsCache = [];
+      renderPlanRows(false);
+    }
+  }
+
+  function renderPlanRows(useSaved){
+    const box = document.getElementById("planList");
+    if (!box) return;
+    const weekday = document.getElementById("planWeekday")?.value || "2";
+    const weeks = Number(document.getElementById("planWeeks")?.value || 12);
+    let existing = {};
+    if (useSaved && planRowsCache.length) planRowsCache.forEach(r => existing[r.date] = r);
+    const dates = nextWeekdayDates(weekday, weeks);
+    planRowsCache = dates.map(date => ({
+      date,
+      weekday,
+      hostId: existing[date]?.hostId || "",
+      shareId: existing[date]?.shareId || ""
+    }));
+
+    box.innerHTML = `<div class="wrap-x"><table style="width:100%; border-collapse:collapse; font-size:13px;">
+      <thead><tr>
+        <th style="text-align:left; padding:7px; border-bottom:1px solid var(--border);">Fecha</th>
+        <th style="text-align:left; padding:7px; border-bottom:1px solid var(--border);">🏠 Anfitrión</th>
+        <th style="text-align:left; padding:7px; border-bottom:1px solid var(--border);">🍽️ Compartir</th>
+      </tr></thead>
+      <tbody>${planRowsCache.map((r,i) => `<tr data-plan-index="${i}">
+        <td style="padding:7px; border-bottom:1px solid var(--border); white-space:nowrap;"><strong>${planDateLabel(r.date)}</strong><div style="font-size:11px;color:var(--text-dim);">${planWeekdayLabel(r.weekday)}</div></td>
+        <td style="padding:7px; border-bottom:1px solid var(--border);"><select data-plan-host="${i}" style="min-width:180px;">${personOptions(r.hostId)}</select></td>
+        <td style="padding:7px; border-bottom:1px solid var(--border);"><select data-plan-share="${i}" style="min-width:180px;">${personOptionsWithDeTraje(r.shareId)}</select></td>
+      </tr>`).join("")}</tbody>
+    </table></div>`;
+
+    box.querySelectorAll("[data-plan-host]").forEach(el => el.onchange = e => {
+      planRowsCache[Number(e.target.dataset.planHost)].hostId = e.target.value;
+    });
+    box.querySelectorAll("[data-plan-share]").forEach(el => el.onchange = e => {
+      planRowsCache[Number(e.target.dataset.planShare)].shareId = e.target.value;
+    });
+  }
+
+  async function savePlanReuniones(){
+    if (!planRowsCache.length){ setStatus("Primero genera las fechas del plan."); return; }
+    setStatus("Guardando plan…");
+    try {
+      const batch = db.batch();
+      planRowsCache.forEach(r => {
+        const ref = db.doc("groups/" + currentGroupId + "/meetingPlan/" + r.date);
+        batch.set(ref, {
+          date:r.date,
+          weekday:Number(r.weekday),
+          hostId:r.hostId || null,
+          shareId:r.shareId || null,
+          updatedAt:Date.now()
+        }, {merge:true});
+      });
+      await batch.commit();
+      setStatus("Plan de reuniones guardado correctamente.");
+      await loadPlanReuniones();
+    } catch(e){ setStatus("Error al guardar el plan: " + (e.code || e.message || "error")); }
+  }
+
+  async function exportPlanExcel(){
+    if (!window.XLSX){ setStatus("No se pudo cargar el módulo de Excel."); return; }
+    if (!planRowsCache.length) await loadPlanReuniones();
+    if (!planRowsCache.length){ setStatus("No hay fechas planificadas para exportar."); return; }
+    try {
+      const actualSnap = await db.collection("groups/" + currentGroupId + "/meetings").orderBy("date","asc").limit(500).get();
+      const actual = actualSnap.docs.map(d => ({id:d.id,...d.data()}));
+      const plannedSheet = planRowsCache.map(r => {
+        const host = people.find(p => p.id === r.hostId);
+        const share = people.find(p => p.id === r.shareId);
+        return {
+          "Fecha": r.date,
+          "Día": planWeekdayLabel(r.weekday),
+          "Anfitrión planificado": host ? host.name : "",
+          "Compartir planificado": r.shareId === "__DE_TRAJE__" ? "De traje" : (share ? share.name : "")
+        };
+      });
+      const actualSheet = actual.filter(m => planRowsCache.some(r => r.date === m.date)).map(m => {
+        const host = people.find(p => p.id === m.hostId);
+        const share = people.find(p => p.id === m.shareId);
+        return {
+          "Fecha": m.date || "",
+          "Anfitrión realizado": host ? host.name : "",
+          "Compartir realizado": m.shareId === "__DE_TRAJE__" ? "De traje" : (share ? share.name : ""),
+          "Reunión registrada": "Sí"
+        };
+      });
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(plannedSheet), "Plan de reuniones");
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(actualSheet), "Reuniones realizadas");
+      const data = XLSX.write(wb, {bookType:"xlsx", type:"array"});
+      const blob = new Blob([data], {type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"});
+      const grupo = groups.find(g => g.id === currentGroupId);
+      const filename = "Plan_Reuniones_" + (grupo ? grupo.name : "grupo").replace(/\s+/g,"_") + ".xlsx";
+      const result = await downloadsCap.save({filename, data:blob});
+      setStatus(result.status === "download_started" ? "Descarga iniciada. Revisa la carpeta Descargas." : result.status === "saved" ? "Plan exportado a Excel." : "Archivo enviado para compartir.");
+    } catch(e){ setStatus("No se pudo exportar el plan: " + (e.code || e.message || "error")); }
+  }
+
+  // ============================================================
+  // TAB: INFORMES
+  // ============================================================
+  function renderInformes(){
+    const el = document.getElementById("content");
+    const activos = people.filter(p => p.active !== false);
+    const options = ['<option value="">Todo el grupo</option>'].concat(
+      activos.map(p => `<option value="${p.id}">${esc(p.name)}</option>`)
+    ).join("");
+    const grupo = groups.find(g => g.id === currentGroupId);
+    el.innerHTML = `
+      <div class="card" style="padding:14px;">
+        <div style="font-weight:700; margin-bottom:10px;">Exportar informe a Word</div>
+        <label style="font-size:12px; color:var(--text-dim);">Alcance</label>
+        <select id="reportScope">${options}</select>
+
+        <div style="margin-top:14px; display:flex; flex-direction:column; gap:6px;">
+          <label style="display:flex; align-items:center; gap:6px; font-size:14px;">
+            <input type="radio" name="reportRange" id="rangeAll" value="all" checked style="width:auto;" />
+            Informe general (todo el historial, desde el inicio)
+          </label>
+          <label style="display:flex; align-items:center; gap:6px; font-size:14px;">
+            <input type="radio" name="reportRange" id="rangeCustom" value="range" style="width:auto;" />
+            Por rango de fechas
+          </label>
+        </div>
+        <div id="rangeInputs" style="display:none; gap:8px; margin-top:8px;">
+          <div style="flex:1;">
+            <label style="font-size:12px; color:var(--text-dim);">Desde</label>
+            <input type="date" id="rangeFrom" />
+          </div>
+          <div style="flex:1;">
+            <label style="font-size:12px; color:var(--text-dim);">Hasta</label>
+            <input type="date" id="rangeTo" value="${todayISO()}" />
+          </div>
+        </div>
+
+        <label style="font-size:12px; color:var(--text-dim); display:flex; align-items:center; gap:6px; margin-top:14px;">
+          <input type="checkbox" id="includeAtt" checked style="width:auto;" /> Incluir resumen de asistencia
+        </label>
+        <button class="btn" id="genReportBtn" style="margin-top:14px;">${downloadsCap ? "Generar y descargar (.docx)" : "Generar (.docx no disponible aquí)"}</button>
+      </div>
+      <div class="card" style="padding:14px; margin-top:14px;">
+        <div style="font-weight:700; margin-bottom:6px;">Resumen rápido</div>
+        <div style="font-size:13px; color:var(--text-dim);">
+          Grupo: ${esc(grupo ? grupo.name : "—")}<br/>
+          Personas activas: ${activos.length}
+        </div>
+      </div>
+
+      <div class="card" style="padding:14px; margin-top:14px;">
+        <div style="font-weight:700; margin-bottom:10px;">Informe de reuniones (temas y asuntos)</div>
+        <div style="display:flex; flex-direction:column; gap:6px;">
+          <label style="display:flex; align-items:center; gap:6px; font-size:14px;">
+            <input type="radio" name="meetingRange" id="meetingRangeAll" value="all" checked style="width:auto;" />
+            Todo el historial de reuniones
+          </label>
+          <label style="display:flex; align-items:center; gap:6px; font-size:14px;">
+            <input type="radio" name="meetingRange" id="meetingRangeCustom" value="range" style="width:auto;" />
+            Por rango de fechas
+          </label>
+        </div>
+        <div id="meetingRangeInputs" style="display:none; gap:8px; margin-top:8px;">
+          <div style="flex:1;">
+            <label style="font-size:12px; color:var(--text-dim);">Desde</label>
+            <input type="date" id="meetingRangeFrom" />
+          </div>
+          <div style="flex:1;">
+            <label style="font-size:12px; color:var(--text-dim);">Hasta</label>
+            <input type="date" id="meetingRangeTo" value="${todayISO()}" />
+          </div>
+        </div>
+        <button class="btn" id="genMeetingReportBtn" style="margin-top:14px;">${downloadsCap ? "Generar y descargar (.docx)" : "Generar (.docx no disponible aquí)"}</button>
+      </div>
+      <div class="card" style="padding:14px; margin-top:14px;">
+        <div style="font-weight:700; margin-bottom:10px;">Informe de personas en Excel</div>
+        <div style="font-size:13px; color:var(--text-dim); margin-bottom:10px;">Genera dos pestañas: participación por fecha de reunión y ficha general de las personas.</div>
+        <button class="btn" id="genPeopleExcelBtn">Exportar personas a Excel (2 pestañas)</button>
+      </div>
+    `;
+    const meetingRangeInputs = document.getElementById("meetingRangeInputs");
+    document.getElementById("meetingRangeAll").onchange = () => { meetingRangeInputs.style.display = "none"; };
+    document.getElementById("meetingRangeCustom").onchange = () => { meetingRangeInputs.style.display = "flex"; };
+    document.getElementById("genMeetingReportBtn").onclick = () => {
+      const isRange = document.getElementById("meetingRangeCustom").checked;
+      const from = isRange ? (document.getElementById("meetingRangeFrom").value || null) : null;
+      const to = isRange ? (document.getElementById("meetingRangeTo").value || null) : null;
+      generateMeetingsReport(from, to);
+    };
+    const rangeInputs = document.getElementById("rangeInputs");
+    document.getElementById("rangeAll").onchange = () => { rangeInputs.style.display = "none"; };
+    document.getElementById("rangeCustom").onchange = () => { rangeInputs.style.display = "flex"; };
+    document.getElementById("genPeopleExcelBtn").onclick = exportPeopleExcel;
+    document.getElementById("genReportBtn").onclick = () => {
+      const isRange = document.getElementById("rangeCustom").checked;
+      const from = isRange ? (document.getElementById("rangeFrom").value || null) : null;
+      const to = isRange ? (document.getElementById("rangeTo").value || null) : null;
+      generateReport(
+        document.getElementById("reportScope").value,
+        document.getElementById("includeAtt").checked,
+        from, to
+      );
+    };
+  }
+
+  async function exportPeopleExcel(){
+    if (!downloadsCap){ setStatus("La descarga de archivos no está disponible en esta vista."); return; }
+    if (!window.XLSX){ setStatus("No se pudo cargar el módulo de Excel."); return; }
+    setStatus("Generando Excel de personas y asistencia…");
+    try {
+      const activos=people.filter(p=>p.active!==false);
+      const meetSnap=await db.collection("groups/"+currentGroupId+"/meetings").orderBy("date","asc").limit(500).get();
+      const meetings=meetSnap.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>(a.date||"").localeCompare(b.date||""));
+      const participation=activos.map(p=>{
+        const row={"Persona":p.name};
+        meetings.forEach(m=>{const isHost=m.hostId===p.id,isShare=m.shareId===p.id;row[m.date]=isHost&&isShare?"Compartir + Anfitrión":isHost?"Anfitrión":isShare?"Compartir":"";});
+        return row;
+      });
+      const persons=activos.map(p=>({"Persona":p.name,"Tipo":p.memberType||"","Sexo":p.sex||"","Unión libre":p.unionFree?"Sí":"No","Compañero/a":p.unionFree?(p.partnerName||""):"","Desde unión":p.unionFree?(p.unionFrom||""):"","Hasta unión":p.unionFree?(p.unionCurrent?"Actualidad":(p.unionTo||"")):"","Celular":p.phone||"","Cumpleaños":p.birthday||"","Fecha ingreso":p.joinDate||"","¿Asistió al retiro espiritual?":p.retreatAttended===true?"Sí":p.retreatAttended===false?"No":"","Estado civil anterior":p.married?"Casado(a)":"Soltero(a)","Cónyuge":p.married?(p.spouseName||""):"","Fecha de matrimonio":p.married?(p.marriageDate||""):"","Años de matrimonio":p.married?(p.marriageYears!=null?p.marriageYears:""):""}));
+      const grupo=groups.find(g=>g.id===currentGroupId);
+      let guestsForReport=guestList.slice();
+      try { const gs=await db.collection("groups/"+currentGroupId+"/guests").limit(300).get(); guestsForReport=gs.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>String(b.lastMeetingDate||"").localeCompare(String(a.lastMeetingDate||""))); } catch(e) {}
+
+      // Nueva pestaña: control detallado de asistencia por fecha y por persona.
+      // Cada fila representa a una persona en una fecha concreta, para poder
+      // revisar quién asistió, quién faltó y quién fue invitado.
+      const attSnap=await db.collection("groups/"+currentGroupId+"/attendance").orderBy("date","asc").limit(500).get();
+      const attByDate={};
+      attSnap.docs.forEach(d=>{const a=d.data()||{}; if(a.date) attByDate[a.date]=a;});
+      const allDates=Array.from(new Set([...meetings.map(m=>m.date).filter(Boolean),...Object.keys(attByDate)])).sort();
+      // Pestaña "Asistencia por fecha": contiene DOS bloques en la misma hoja:
+      // 1) control matricial: personas en filas y fechas en columnas.
+      // 2) resumen por fecha (totales y porcentaje).
+      const attendanceSummaryByDate=[];
+      const attendanceMatrixDates=allDates.slice();
+      const attendanceMatrixPeople=[];
+      const attendanceMatrixMap={};
+      const ensureMatrixPerson=(key,name,kind)=>{
+        if(!attendanceMatrixMap[key]){
+          const row={"Persona":name,"__kind":kind};
+          attendanceMatrixDates.forEach(d=>row[d]="—");
+          attendanceMatrixMap[key]=row; attendanceMatrixPeople.push(row);
+        }
+        return attendanceMatrixMap[key];
+      };
+      activos.forEach(p=>ensureMatrixPerson("member:"+p.id,p.name||"", "Miembro oficial"));
+      const attendanceDetailByDate=[];
+      allDates.forEach(date=>{
+        const a=attByDate[date]||{};
+        const hasAttendanceRecord=Object.keys(a).length>0;
+        const presentMap=a.present||{};
+        let guests=Array.isArray(a.guests)?a.guests:[];
+        const m=meetings.find(x=>x.date===date)||{};
+        if(!guests.length && m) guests=legacyGuestsFromMeeting(m).filter(g=>g.name);
+
+        const officialTotal=activos.length;
+        const officialPresent=hasAttendanceRecord ? activos.filter(p=>presentMap[p.id]===true).length : null;
+        const officialAbsent=hasAttendanceRecord ? Math.max(officialTotal-officialPresent,0) : null;
+        const guestTotal=guests.length;
+        const participantTotal=officialTotal+guestTotal;
+        const participantPresent=hasAttendanceRecord ? officialPresent+guestTotal : null;
+        const participationPct=hasAttendanceRecord && participantTotal>0 ? participantPresent/participantTotal : null;
+
+        attendanceSummaryByDate.push({
+          "Fecha":date,
+          "Miembros oficiales":officialTotal,
+          "Oficiales presentes":officialPresent==null?"":officialPresent,
+          "Oficiales ausentes":officialAbsent==null?"":officialAbsent,
+          "Invitados":guestTotal,
+          "Participantes totales":participantTotal,
+          "Participantes presentes":participantPresent==null?"":participantPresent,
+          "% participación":participationPct==null?"":participationPct
+        });
+
+        // Miembros oficiales: aparecen aunque estén ausentes.
+        activos.forEach(p=>{
+          const matrixRow=ensureMatrixPerson("member:"+p.id,p.name||"", "Miembro oficial");
+          const hasRecord=Object.prototype.hasOwnProperty.call(presentMap,p.id);
+          matrixRow[date]=hasRecord ? (presentMap[p.id]===true ? "✓" : "X") : "—";
+          const status=hasRecord ? (presentMap[p.id]===true ? "Presente" : "Ausente") : "Sin registro";
+          attendanceDetailByDate.push({
+            "Fecha":date,
+            "Persona":p.name||"",
+            "Tipo":p.memberType||"Miembro",
+            "Categoría":"Miembro oficial",
+            "Asistencia":status,
+            "Decisión invitado":"",
+            "Anfitrión":m.hostId===p.id?"Sí":"",
+            "Compartir":m.shareId===p.id?"Sí":""
+          });
+        });
+
+        // Invitados: se registran como participantes de esa reunión y en la matriz.
+        guests.forEach(g=>{
+          if(!g.name) return;
+          const guestKey="guest:"+String(g.id||g.name).toLowerCase();
+          const matrixRow=ensureMatrixPerson(guestKey,g.name,"Invitado");
+          matrixRow[date]="Invitado";
+          attendanceDetailByDate.push({
+            "Fecha":date,
+            "Persona":g.name,
+            "Tipo":"Invitado",
+            "Categoría":"Invitado",
+            "Asistencia":"Presente",
+            "Decisión invitado":guestStatusLabel(g.status),
+            "Anfitrión":"",
+            "Compartir":""
+          });
+        });
+      });
+
+      if(window.ExcelJS){
+        const wb=new ExcelJS.Workbook(); wb.creator="Seguimiento de Grupo de Oración"; wb.created=new Date();
+        const makeSheet=(name,rows,title,percentColumns=[])=>{
+          const ws=wb.addWorksheet(name); ws.views=[{state:"frozen",ySplit:2}];
+          const headers=rows.length?Object.keys(rows[0]):[];
+          ws.mergeCells(1,1,1,Math.max(headers.length,1)); const t=ws.getCell(1,1); t.value=title; t.font={bold:true,size:16,color:{argb:"FFFFFFFF"}}; t.fill={type:"pattern",pattern:"solid",fgColor:{argb:REPORT_COLORS.navy}}; t.alignment={vertical:"middle"}; ws.getRow(1).height=26;
+          if(headers.length){ ws.getRow(2).values=headers; ws.getRow(2).eachCell(c=>{c.font={bold:true,color:{argb:"FFFFFFFF"}};c.fill={type:"pattern",pattern:"solid",fgColor:{argb:REPORT_COLORS.red}};c.alignment={vertical:"middle",wrapText:true};}); }
+          rows.forEach((r,idx)=>{const vals=headers.map(h=>r[h]??"");ws.addRow(vals);if(idx%2===1)ws.getRow(idx+3).eachCell(c=>c.fill={type:"pattern",pattern:"solid",fgColor:{argb:"FFF4F6FA"}});});
+          percentColumns.forEach(h=>{const col=headers.indexOf(h)+1;if(col>0)for(let r=3;r<=rows.length+2;r++)ws.getCell(r,col).numFmt="0%";});
+          ws.autoFilter={from:{row:2,column:1},to:{row:Math.max(2,rows.length+2),column:Math.max(1,headers.length)}};
+          headers.forEach((h,i)=>{let max=h.length;rows.slice(0,100).forEach(r=>{max=Math.max(max,String(r[h]??"").length)});ws.getColumn(i+1).width=Math.min(Math.max(max+2,12),36);});
+          return ws;
+        };
+        makeSheet("Participación",participation,"Participación y funciones en reuniones — "+(grupo?grupo.name:"Grupo"));
+        makeSheet("Personas",persons,"Miembros oficiales — "+(grupo?grupo.name:"Grupo"));
+        const guestsRows=guestsForReport.length?guestsForReport.map(g=>({"Invitado":g.name,"Estado":guestStatusLabel(g.status),"Primera visita":g.firstMeetingDate||"","Última visita":g.lastMeetingDate||""})):[];
+        makeSheet("Invitados",guestsRows,"Invitados — "+(grupo?grupo.name:"Grupo"));
+
+        // Hoja "Asistencia por fecha": primero la matriz persona x fecha y debajo el resumen.
+        const ws4=wb.addWorksheet("Asistencia por fecha");
+        ws4.views=[{state:"frozen",xSplit:1,ySplit:3}];
+
+        const matrixTitle="Control de asistencia por persona y fecha — "+(grupo?grupo.name:"Grupo");
+        const matrixHeaders=["Persona",...attendanceMatrixDates];
+        ws4.mergeCells(1,1,1,Math.max(matrixHeaders.length,1));
+        const mt=ws4.getCell(1,1); mt.value=matrixTitle; mt.font={bold:true,size:16,color:{argb:"FFFFFFFF"}}; mt.fill={type:"pattern",pattern:"solid",fgColor:{argb:REPORT_COLORS.navy}}; mt.alignment={vertical:"middle"}; ws4.getRow(1).height=26;
+        ws4.getRow(2).values=matrixHeaders;
+        ws4.getRow(2).eachCell(c=>{c.font={bold:true,color:{argb:"FFFFFFFF"}};c.fill={type:"pattern",pattern:"solid",fgColor:{argb:REPORT_COLORS.red}};c.alignment={vertical:"middle",horizontal:"center",wrapText:true};});
+        attendanceMatrixPeople.forEach((r,idx)=>{
+          ws4.addRow(matrixHeaders.map(h=>r[h]??""));
+          const row=ws4.getRow(idx+3);
+          if(idx%2===1) row.eachCell(c=>c.fill={type:"pattern",pattern:"solid",fgColor:{argb:"FFF4F6FA"}});
+          for(let c=2;c<=matrixHeaders.length;c++) row.getCell(c).alignment={horizontal:"center",vertical:"middle"};
+        });
+        ws4.getColumn(1).width=30;
+        for(let c=2;c<=matrixHeaders.length;c++) ws4.getColumn(c).width=13;
+        const matrixEnd=2+attendanceMatrixPeople.length;
+        ws4.autoFilter={from:{row:2,column:1},to:{row:Math.max(2,matrixEnd),column:Math.max(1,matrixHeaders.length)}};
+
+        const summaryStart=matrixEnd+3;
+        const summaryTitle="Resumen de asistencia por fecha — "+(grupo?grupo.name:"Grupo");
+        const sumHeaders=attendanceSummaryByDate.length?Object.keys(attendanceSummaryByDate[0]):["Fecha","Miembros oficiales","Oficiales presentes","Oficiales ausentes","Invitados","Participantes totales","Participantes presentes","% participación"];
+        ws4.mergeCells(summaryStart,1,summaryStart,Math.max(sumHeaders.length,1));
+        const st=ws4.getCell(summaryStart,1); st.value=summaryTitle; st.font={bold:true,size:15,color:{argb:"FFFFFFFF"}}; st.fill={type:"pattern",pattern:"solid",fgColor:{argb:REPORT_COLORS.navy}}; st.alignment={vertical:"middle"}; ws4.getRow(summaryStart).height=24;
+        const sumHeaderRow=summaryStart+1;
+        ws4.getRow(sumHeaderRow).values=sumHeaders;
+        ws4.getRow(sumHeaderRow).eachCell(c=>{c.font={bold:true,color:{argb:"FFFFFFFF"}};c.fill={type:"pattern",pattern:"solid",fgColor:{argb:REPORT_COLORS.red}};c.alignment={vertical:"middle",horizontal:"center",wrapText:true};});
+        attendanceSummaryByDate.forEach((r,idx)=>{
+          ws4.addRow(sumHeaders.map(h=>r[h]??""));
+          const row=ws4.getRow(sumHeaderRow+1+idx);
+          if(idx%2===1) row.eachCell(c=>c.fill={type:"pattern",pattern:"solid",fgColor:{argb:"FFF4F6FA"}});
+        });
+        const pctCol=sumHeaders.indexOf("% participación")+1;
+        if(pctCol>0) for(let r=sumHeaderRow+1;r<=sumHeaderRow+attendanceSummaryByDate.length;r++) ws4.getCell(r,pctCol).numFmt="0%";
+        const summaryEnd=sumHeaderRow+Math.max(1,attendanceSummaryByDate.length);
+        ws4.autoFilter={from:{row:sumHeaderRow,column:1},to:{row:summaryEnd,column:Math.max(1,sumHeaders.length)}};
+        sumHeaders.forEach((h,i)=>{let max=h.length;attendanceSummaryByDate.slice(0,100).forEach(r=>max=Math.max(max,String(r[h]??"").length));ws4.getColumn(i+1).width=Math.max(ws4.getColumn(i+1).width||0,Math.min(Math.max(max+2,14),28));});
+
+        const buf=await wb.xlsx.writeBuffer(); const blob=new Blob([buf],{type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"});
+        const result=await downloadsCap.save({filename:"Informe_Personas_"+(grupo?grupo.name:"grupo").replace(/\s+/g,"_")+".xlsx",data:blob});
+        setStatus(result.status === "download_started" ? "Descarga iniciada. Revisa la carpeta Descargas." : result.status === "saved" ? "Informe de personas y asistencia exportado a Excel." : "Archivo enviado para compartir.");
+      } else {
+        const wb=XLSX.utils.book_new();
+        const ws1=XLSX.utils.json_to_sheet(participation); const ws2=XLSX.utils.json_to_sheet(persons); const ws3=XLSX.utils.json_to_sheet(guestsForReport.map(g=>({"Invitado":g.name,"Estado":guestStatusLabel(g.status),"Primera visita":g.firstMeetingDate||"","Última visita":g.lastMeetingDate||""})));
+        const ws4=XLSX.utils.aoa_to_sheet([]);
+        const matrixHeaders=["Persona",...attendanceMatrixDates];
+        XLSX.utils.sheet_add_aoa(ws4,[["Control de asistencia por persona y fecha — "+(grupo?grupo.name:"Grupo")]],{origin:"A1"});
+        XLSX.utils.sheet_add_aoa(ws4,[matrixHeaders],{origin:"A2"});
+        XLSX.utils.sheet_add_json(ws4,attendanceMatrixPeople.map(r=>{const o={};matrixHeaders.forEach(h=>o[h]=r[h]??"");return o;}),{origin:"A3",skipHeader:true});
+        const matrixEnd=2+attendanceMatrixPeople.length;
+        const summaryStart=matrixEnd+3;
+        XLSX.utils.sheet_add_aoa(ws4,[["Resumen de asistencia por fecha — "+(grupo?grupo.name:"Grupo")]],{origin:`A${summaryStart}`});
+        const sumHeaders=Object.keys(attendanceSummaryByDate[0]||{"Fecha":""});
+        XLSX.utils.sheet_add_aoa(ws4,[sumHeaders],{origin:`A${summaryStart+1}`});
+        XLSX.utils.sheet_add_json(ws4,attendanceSummaryByDate,{origin:`A${summaryStart+2}`,skipHeader:true});
+        XLSX.utils.book_append_sheet(wb,ws1,"Participación"); XLSX.utils.book_append_sheet(wb,ws2,"Personas"); XLSX.utils.book_append_sheet(wb,ws3,"Invitados"); XLSX.utils.book_append_sheet(wb,ws4,"Asistencia por fecha");
+        const data=XLSX.write(wb,{bookType:"xlsx",type:"array"}); const blob=new Blob([data],{type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"});
+        const result=await downloadsCap.save({filename:"Informe_Personas_"+(grupo?grupo.name:"grupo").replace(/\s+/g,"_")+".xlsx",data:blob}); setStatus(result.status === "download_started" ? "Descarga iniciada. Revisa la carpeta Descargas." : "Informe exportado a Excel.");
+      }
+    }catch(e){setStatus("No se pudo generar el Excel ("+(e.code||"error")+").");}
+  }
+
+  function inRange(dateStr, from, to){
+    if (!dateStr) return false;
+    if (from && dateStr < from) return false;
+    if (to && dateStr > to) return false;
+    return true;
+  }
+
+  const REPORT_COLORS={navy:"0A2A63",blue:"174B9B",red:"D2262E",yellow:"FFD21A",light:"F4F6FA",border:"D9E0EB",text:"17233D",muted:"657086",green:"23784C"};
+  function reportParagraph(text,{bold=false,size=22,color=REPORT_COLORS.text,spacingBefore=0,spacingAfter=80}={}){
+    return new docx.Paragraph({children:[new docx.TextRun({text:String(text==null?"":text),bold,color,size})],spacing:{before:spacingBefore,after:spacingAfter}});
+  }
+  function reportCell(text,{header=false,width}={}){
+    return new docx.TableCell({width:width?{size:width,type:docx.WidthType.PERCENTAGE}:undefined,shading:header?{fill:REPORT_COLORS.navy}:undefined,children:[new docx.Paragraph({children:[new docx.TextRun({text:String(text==null?"":text),bold:true,color:header?"FFFFFF":REPORT_COLORS.text,size:20})],spacing:{after:30}})]});
+  }
+  function reportSectionTitle(text){ return new docx.Paragraph({children:[new docx.TextRun({text:String(text),bold:true,color:REPORT_COLORS.navy,size:26})],spacing:{before:260,after:100},border:{bottom:{color:REPORT_COLORS.red,size:10,space:3,style:docx.BorderStyle.SINGLE}}}); }
+  function reportDoc(children){
+    return new docx.Document({sections:[{properties:{page:{margin:{top:720,right:720,bottom:720,left:720}}},children:[
+      new docx.Paragraph({children:[new docx.TextRun({text:"SEGUIMIENTO DE GRUPO DE ORACIÓN",bold:true,color:REPORT_COLORS.navy,size:18})],spacing:{after:80}}),
+      ...children,
+      new docx.Paragraph({text:"",spacing:{before:100}}),
+      new docx.Paragraph({children:[new docx.TextRun({text:"Informe generado por Seguimiento de Grupo de Oración",color:REPORT_COLORS.muted,size:16,italics:true})],alignment:docx.AlignmentType.CENTER})
+    ]}]});
+  }
+
+  async function generateReport(personId, includeAtt, from, to){
+    if (!downloadsCap){ setStatus("La descarga de archivos no está disponible en esta vista."); return; }
+    setStatus("Generando informe…");
+    try {
+      const grupo = groups.find(g => g.id === currentGroupId);
+      const activos = people.filter(p => p.active !== false);
+      const targets = personId ? activos.filter(p => p.id === personId) : activos;
+      const isRange = !!(from || to);
+
+      const children = [];
+      children.push(new docx.Paragraph({children:[new docx.TextRun({text:"Informe de Seguimiento",bold:true,color:REPORT_COLORS.red,size:34})],spacing:{after:70}}));
+      children.push(reportParagraph(grupo ? grupo.name : "Grupo de Oración",{bold:true,size:25,color:REPORT_COLORS.navy,spacingAfter:70}));
+      const rangeLabel = isRange ? ("Rango: " + (from || "inicio") + " a " + (to || "hoy")) : "Informe general — todo el historial";
+      children.push(reportParagraph(rangeLabel,{size:18,color:REPORT_COLORS.muted,spacingAfter:40}));
+      children.push(reportParagraph("Generado el " + new Date().toLocaleDateString("es"),{size:17,color:REPORT_COLORS.muted,spacingAfter:160}));
+
+      for (const p of targets){
+        const snap = await db.collection("groups/" + currentGroupId + "/people/" + p.id + "/situations").orderBy("createdAt","desc").get();
+        let allSits = snap.docs.map(d => d.data());
+
+        // Notes filtered by range for display purposes
+        const withFilteredNotes = allSits.map(s => {
+          const notes = (s.notes || []).slice().sort((a,b) => (a.date < b.date ? 1 : -1));
+          const filteredNotes = isRange ? notes.filter(n => inRange(n.date, from, to)) : notes;
+          return Object.assign({}, s, { _notes: filteredNotes, _allNotes: notes, _startInRange: inRange(s.startDate, from, to) });
+        });
+
+        // "Importante" situations always appear in full, regardless of date range.
+        const importantSits = withFilteredNotes.filter(s => s.category === "importante")
+          .map(s => Object.assign({}, s, { _notes: s._allNotes }));
+        // "Otra" situations follow the normal date-range filtering.
+        const otherSits = withFilteredNotes.filter(s => s.category !== "importante")
+          .filter(s => !isRange || s._startInRange || s._notes.length > 0);
+
+        children.push(reportSectionTitle(p.name));
+
+        const civilLine = p.married
+          ? "Estado civil: Casado(a)" + (p.spouseName ? " con " + p.spouseName : "") + (p.marriageYears != null && p.marriageYears !== "" ? " — " + p.marriageYears + (Number(p.marriageYears)===1?" año":" años") + " de casados" : "")
+          : "Estado civil: Soltero(a)";
+        const childrenLine = p.hasChildren
+          ? "Hijos: " + (p.childrenCount != null && p.childrenCount !== "" ? p.childrenCount : "Sí")
+          : "Hijos: No";
+        const groupTimeLine = p.joinDate
+          ? "En el grupo desde: " + p.joinDate + (timeSince(p.joinDate) ? " (" + timeSince(p.joinDate) + ")" : "")
+          : null;
+        children.push(new docx.Paragraph({ text: civilLine }));
+        children.push(new docx.Paragraph({ text: childrenLine }));
+        if (p.phone) children.push(new docx.Paragraph({ text: "Celular: " + p.phone }));
+        if (p.birthday) children.push(new docx.Paragraph({ text: "Cumpleaños: " + formatBirthdayShort(p.birthday) }));
+        if (p.memberType) children.push(new docx.Paragraph({ text: "Tipo: " + p.memberType }));
+        if (p.sex) children.push(new docx.Paragraph({ text: "Sexo: " + p.sex }));
+        if (p.unionFree) children.push(new docx.Paragraph({ text: "Unión libre: " + (p.partnerName || "sin nombre") + " — desde " + (p.unionFrom || "—") + " — " + (p.unionCurrent ? "Actualidad" : (p.unionTo || "—")) }));
+        if (groupTimeLine) children.push(new docx.Paragraph({ text: groupTimeLine, spacing: { after: 100 } }));
+
+        function pushSituation(s){
+          children.push(new docx.Paragraph({
+            children: [
+              new docx.TextRun({ text: s.description, bold: true }),
+              new docx.TextRun({ text: "  [" + (s.status === "superada" ? "Superada" : "En proceso") + "]", italics: true })
+            ],
+            spacing: { before: 150 }
+          }));
+          children.push(new docx.Paragraph({ text: "Desde: " + (s.startDate || "—") }));
+          if (s._notes.length){
+            s._notes.forEach(n => {
+              children.push(new docx.Paragraph({ text: "• " + n.date + " — " + n.text }));
+            });
+          } else {
+            children.push(new docx.Paragraph({ text: isRange ? "Sin anotaciones en este rango." : "Sin anotaciones semanales todavía.", italics: true }));
+          }
+        }
+
+        children.push(new docx.Paragraph({ text: "Temas importantes", heading: docx.HeadingLevel.HEADING_3, spacing: { before: 200 } }));
+        if (!importantSits.length){
+          children.push(new docx.Paragraph({ text: "Sin temas importantes registrados.", italics: true }));
+        } else {
+          importantSits.forEach(pushSituation);
+        }
+
+        children.push(new docx.Paragraph({ text: "Otras luchas o situaciones", heading: docx.HeadingLevel.HEADING_3, spacing: { before: 200 } }));
+        if (!otherSits.length){
+          children.push(new docx.Paragraph({ text: isRange ? "Sin actividad registrada en este rango de fechas." : "Sin otras situaciones registradas.", italics: true }));
+        } else {
+          otherSits.forEach(pushSituation);
+        }
+      }
+
+      if (includeAtt){
+        children.push(reportSectionTitle("Resumen de asistencia"));
+        const attSnap = await db.collection("groups/" + currentGroupId + "/attendance").orderBy("date","desc").limit(500).get();
+        let attDocs = attSnap.docs.map(d => d.data());
+        if (isRange) attDocs = attDocs.filter(a => inRange(a.date, from, to));
+        if (!attDocs.length){
+          children.push(new docx.Paragraph({ text: "Sin registros de asistencia" + (isRange ? " en este rango." : ".") }));
+        } else {
+          const rows = [ new docx.TableRow({ children: [
+            reportCell("Persona",{header:true}), reportCell("Reuniones",{header:true}), reportCell("Asistencias",{header:true}), reportCell("% Asistencia",{header:true})
+          ]})];
+          for (const p of targets){
+            let total = 0, presentes = 0;
+            attDocs.forEach(a => {
+              if (a.present && Object.prototype.hasOwnProperty.call(a.present, p.id)){
+                total++;
+                if (a.present[p.id]) presentes++;
+              }
+            });
+            const pct = total ? Math.round((presentes/total)*100) + "%" : "—";
+            rows.push(new docx.TableRow({ children: [
+              reportCell(p.name), reportCell(String(total)), reportCell(String(presentes)), reportCell(pct)
+            ]}));
+          }
+          children.push(new docx.Table({ rows, width: { size: 100, type: docx.WidthType.PERCENTAGE } }));
+        }
+      }
+
+      const doc = reportDoc(children);
+      const blob = await docx.Packer.toBlob(doc);
+      const scopeLabel = personId ? (activos.find(p=>p.id===personId)||{}).name : "Grupo";
+      const rangeTag = isRange ? ("_" + (from||"inicio") + "_a_" + (to||"hoy")) : "_general";
+      const filename = "Informe_" + (grupo ? grupo.name : "grupo") + "_" + (scopeLabel||"") + rangeTag + ".docx";
+      const result = await downloadsCap.save({ filename: filename.replace(/\s+/g,"_"), data: blob });
+      setStatus(result.status === "download_started" ? "Descarga iniciada. Revisa la carpeta Descargas." : result.status === "saved" ? "Informe descargado." : "Archivo enviado para compartir.");
+    } catch(e){
+      setStatus("No se pudo generar el informe" + (e && e.code ? " (" + e.code + ")" : "") + ".");
+    }
+  }
+
+  function cell(text, header){
+    return new docx.TableCell({
+      children: [ new docx.Paragraph({ children: [ new docx.TextRun({ text: text, bold: !!header }) ] }) ]
+    });
+  }
+
+  async function generateMeetingsReport(from, to){
+    if (!downloadsCap){ setStatus("La descarga de archivos no está disponible en esta vista."); return; }
+    setStatus("Generando informe de reuniones…");
+    try {
+      const grupo = groups.find(g => g.id === currentGroupId);
+      const isRange = !!(from || to);
+      const meetSnap = await db.collection("groups/" + currentGroupId + "/meetings").orderBy("date","desc").limit(500).get();
+      let meetings = meetSnap.docs.map(d => ({id:d.id, ...d.data()})).filter(m => !isRange || inRange(m.date, from, to));
+      const attSnap = await db.collection("groups/" + currentGroupId + "/attendance").orderBy("date","desc").limit(500).get();
+      const attMap = {}; attSnap.docs.forEach(d=>{const a=d.data();attMap[a.date]=a||{};});
+      const activos = people.filter(p => p.active !== false);
+      const children=[];
+      children.push(new docx.Paragraph({children:[new docx.TextRun({text:"Informe de Reuniones",bold:true,color:REPORT_COLORS.red,size:34})],spacing:{after:70}}));
+      children.push(reportParagraph(grupo ? grupo.name : "Grupo de Oración",{bold:true,size:25,color:REPORT_COLORS.navy,spacingAfter:70}));
+      children.push(reportParagraph(isRange ? ("Rango: "+(from||"inicio")+" a "+(to||"hoy")) : "Todo el historial de reuniones",{size:18,color:REPORT_COLORS.muted,spacingAfter:40}));
+      children.push(reportParagraph("Generado el "+new Date().toLocaleDateString("es"),{size:17,color:REPORT_COLORS.muted,spacingAfter:160}));
+      if(!meetings.length) children.push(reportParagraph(isRange?"Sin reuniones registradas en este rango de fechas.":"Sin reuniones registradas todavía.",{size:19,color:REPORT_COLORS.muted}));
+      for(const m of meetings){
+        const presentMap=(attMap[m.date]||{}).present||{};
+        const attendees=activos.filter(p=>presentMap[p.id]===true);
+        const absents=activos.filter(p=>presentMap[p.id]!==true);
+        const host=activos.find(p=>p.id===m.hostId);
+        const share=activos.find(p=>p.id===m.shareId);
+        const guests=legacyGuestsFromMeeting(m);
+        const guestCount=guests.length;
+        const totalParticipants=activos.length+guestCount;
+        const participantCount=attendees.length+guestCount;
+        const pct=totalParticipants?Math.round(participantCount/totalParticipants*100):0;
+        children.push(reportSectionTitle(m.date));
+        const summaryRows=[new docx.TableRow({children:[reportCell("Dato",{header:true}),reportCell("Detalle",{header:true})]})];
+        summaryRows.push(new docx.TableRow({children:[reportCell("Miembros oficiales"),reportCell(String(activos.length))]}));
+        summaryRows.push(new docx.TableRow({children:[reportCell("Asistencia oficial"),reportCell(String(attendees.length)+" / "+activos.length)]}));
+        summaryRows.push(new docx.TableRow({children:[reportCell("Invitados"),reportCell(String(guestCount))]}));
+        summaryRows.push(new docx.TableRow({children:[reportCell("Participación total"),reportCell(String(participantCount)+" / "+String(totalParticipants)+" · "+pct+"%")] }));
+        summaryRows.push(new docx.TableRow({children:[reportCell("Anfitrión"),reportCell(host?host.name:"—")]}));
+        summaryRows.push(new docx.TableRow({children:[reportCell("Compartir"),reportCell(m.shareId==="__DE_TRAJE__"?"De traje":(share?share.name:"—"))]}));
+        children.push(new docx.Table({rows:summaryRows,width:{size:100,type:docx.WidthType.PERCENTAGE}}));
+        children.push(reportSectionTitle("Invitados"));
+        if(guests.length){
+          const guestRows=[new docx.TableRow({children:[reportCell("Nombre",{header:true}),reportCell("Estado",{header:true})]})];
+          guests.forEach(g=>guestRows.push(new docx.TableRow({children:[reportCell(g.name),reportCell(guestStatusLabel(g.status))]})));
+          children.push(new docx.Table({rows:guestRows,width:{size:100,type:docx.WidthType.PERCENTAGE}}));
+        } else children.push(reportParagraph("No hubo invitados registrados.",{size:18,color:REPORT_COLORS.muted}));
+        children.push(reportSectionTitle("Miembros que no asistieron"));
+        if(absents.length) absents.forEach(p=>children.push(reportParagraph("• "+p.name,{size:18,spacingAfter:35}))); else children.push(reportParagraph("Todos los miembros oficiales asistieron.",{size:18,color:REPORT_COLORS.green}));
+        children.push(reportSectionTitle("Temas, asuntos y observaciones"));
+        (m.notes||"").split("\n").forEach(line=>children.push(reportParagraph(line||" ",{size:18,spacingAfter:45})));
+      }
+      const doc=reportDoc(children); const blob=await docx.Packer.toBlob(doc);
+      const rangeTag=isRange?("_"+(from||"inicio")+"_a_"+(to||"hoy")):"_general";
+      const filename="Informe_Reuniones_"+(grupo?grupo.name:"grupo")+rangeTag+".docx";
+      const result=await downloadsCap.save({filename:filename.replace(/\s+/g,"_"),data:blob});
+      setStatus(result.status === "download_started" ? "Descarga iniciada. Revisa la carpeta Descargas." : result.status === "saved" ? "Informe de reuniones descargado." : "Archivo enviado para compartir.");
+    } catch(e){ setStatus("No se pudo generar el informe" + (e && e.code ? " (" + e.code + ")" : "") + "."); }
+  }
+
+  init();
+})();
+</script>
+</body>
+</html>
